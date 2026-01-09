@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Build Outputs
+dist/
+build/
+out/
+.next/
+
+# Backend
+backend/uploads/
+backend/coverage/
+backend/logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
