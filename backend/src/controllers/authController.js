@@ -60,7 +60,7 @@ const getMe = async (req, res) => {
 
 const signup = async (req, res) => {
     try {
-        const { email, password, name, pod_id } = req.body;
+        const { email, password, name, pod_name } = req.body;
 
         // Validation
         if (!email || !password || !name) {
@@ -74,12 +74,12 @@ const signup = async (req, res) => {
         }
 
         // Create new user (default role: DEVELOPER as per plan)
-        // Store pod_id if provided
+        // Store pod_name if provided
         const user = await User.create({
             email,
             password,
             name,
-            pod_id: pod_id || null, // Optional, but good to have if provided
+            pod_name: pod_name || null, // Optional, but good to have if provided
             role: 'DEVELOPER'
         });
 

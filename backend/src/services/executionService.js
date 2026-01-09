@@ -1,4 +1,4 @@
-const { DatabaseInstance } = require('../models');
+const { databases } = require('../config/databases');
 const { executePostgresQuery } = require('./postgresExecutor');
 const { executeMongoQuery } = require('./mongoExecutor');
 const { executeScript } = require('./scriptExecutor');
@@ -7,13 +7,11 @@ const executeRequest = async (request) => {
     console.log(`[ExecutionService] Starting execution for request ${request.id}`);
 
     try {
-        // Fetch instance details to get host/port/creds
-        const instance = await DatabaseInstance.findOne({
-            where: { name: request.instance_name, type: request.db_type }
-        });
+        // Fetch instance details from config
+        const instance = databases.find(db => db.name === request.instance_name && db.type === request.db_type);
 
         if (!instance) {
-            throw new Error(`Database instance ${request.instance_name} (${request.db_type}) not found`);
+            throw new Error(`Database instance ${request.instance_name} (${request.db_type}) not found in configuration`);
         }
 
         let result;

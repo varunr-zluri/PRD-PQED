@@ -44,32 +44,58 @@ const submitRequest = async (req, res) => {
     }
 };
 
+// Helper to build where clause for filtering
+const buildWhereClause = (query) => {
+    const {
+        status,
+        pod_name,
+        start_date,
+        end_date,
+        search,
+        db_type,
+        submission_type,
+        database_name,
+        requester_id,
+        approver_id
+    } = query;
+
+    const whereClause = {};
+
+    if (status) whereClause.status = status;
+    if (pod_name) whereClause.pod_name = pod_name;
+    if (db_type) whereClause.db_type = db_type;
+    if (submission_type) whereClause.submission_type = submission_type;
+    if (database_name) whereClause.database_name = database_name;
+    if (requester_id) whereClause.requester_id = requester_id;
+    if (approver_id) whereClause.approver_id = approver_id;
+
+    if (start_date && end_date) {
+        whereClause.created_at = {
+            [Op.between]: [new Date(start_date), new Date(end_date)]
+        };
+    }
+
+    if (search) {
+        whereClause[Op.or] = [
+            { query_content: { [Op.iLike]: `%${search}%` } },
+            { comments: { [Op.iLike]: `%${search}%` } }
+        ];
+    }
+
+    return whereClause;
+};
+
 const getRequests = async (req, res) => {
     try {
-        const { status, pod_name, start_date, end_date, search, page = 1, limit = 10 } = req.query;
+        const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
-        const whereClause = {};
 
-        if (status) whereClause.status = status;
-        if (pod_name) whereClause.pod_name = pod_name;
-
-        if (start_date && end_date) {
-            whereClause.created_at = {
-                [Op.between]: [new Date(start_date), new Date(end_date)]
-            };
-        }
-
-        if (search) {
-            whereClause[Op.or] = [
-                { query_content: { [Op.iLike]: `%${search}%` } },
-                { comments: { [Op.iLike]: `%${search}%` } }
-            ];
-        }
+        const whereClause = buildWhereClause(req.query);
 
         // Role-based filtering: 
-        if (req.user.role === 'MANAGER' && req.user.pod_id) {
-            // Compare User.pod_id (e.g., 'de') with QueryRequest.pod_name (e.g., 'de')
-            whereClause.pod_name = req.user.pod_id;
+        if (req.user.role === 'MANAGER' && req.user.pod_name) {
+            // Compare User.pod_name (e.g., 'de') with QueryRequest.pod_name (e.g., 'de')
+            whereClause.pod_name = req.user.pod_name;
         }
 
         const { count, rows } = await QueryRequest.findAndCountAll({
@@ -99,8 +125,11 @@ const getMySubmissions = async (req, res) => {
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
 
+        const whereClause = buildWhereClause(req.query);
+        whereClause.requester_id = req.user.id; // Enforce user ownership
+
         const { count, rows } = await QueryRequest.findAndCountAll({
-            where: { requester_id: req.user.id }, // Renamed from user_id
+            where: whereClause,
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
             offset: parseInt(offset)

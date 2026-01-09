@@ -14,8 +14,8 @@ const requirePodAccess = async (req, res, next) => {
     // Since we might not have fetched the request yet, let's just check the user role strictly here
     // and let the controller handle specific resource ownership if needed, OR fetch here.
 
-    // For simplicity, let's just enforce that Managers must have a pod_id.
-    if (req.user.role === 'MANAGER' && !req.user.pod_id) {
+    // For simplicity, let's just enforce that Managers must have a pod_name.
+    if (req.user.role === 'MANAGER' && !req.user.pod_name) {
         return res.status(403).json({ error: 'Manager requires Pod assignment' });
     }
     next();

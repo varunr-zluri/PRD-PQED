@@ -49,7 +49,6 @@ PRD-PQED/
     cd backend
     npm install
     cp .env.example .env  # Configure your credentials
-    node scripts/syncAndSeed.js # Initialize DB schema and seed data
     npm start
     ```
 4.  **Frontend Setup**: (Instructions to be added)

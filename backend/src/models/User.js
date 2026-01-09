@@ -24,8 +24,8 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    pod_id: {
-        type: DataTypes.STRING,
+    pod_name: {
+        type: DataTypes.ENUM('pod-1', 'pod-2', 'pod-3', 'sre', 'de'),
         allowNull: true // Optional for admins
     },
     role: {

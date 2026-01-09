@@ -2,7 +2,6 @@ const Sequelize = require('sequelize');
 const sequelize = require('../config/database');
 const User = require('./User');
 const QueryRequest = require('./QueryRequest');
-const DatabaseInstance = require('./DatabaseInstance');
 const QueryExecution = require('./QueryExecution');
 
 // Define associations
@@ -18,7 +17,6 @@ QueryExecution.belongsTo(QueryRequest, { foreignKey: 'query_request_id', as: 're
 const db = {
     User,
     QueryRequest,
-    DatabaseInstance,
     QueryExecution,
     sequelize,
     Sequelize
