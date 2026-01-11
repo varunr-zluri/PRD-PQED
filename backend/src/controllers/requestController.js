@@ -182,7 +182,7 @@ const approveRequest = async (req, res) => {
         }
 
         // RBAC: Check if manager belongs to the same POD
-        if (req.user.role === 'MANAGER' && req.user.pod_id !== request.pod_name) {
+        if (req.user.role === 'MANAGER' && req.user.pod_name !== request.pod_name) {
             return res.status(403).json({ error: 'You can only approve requests for your POD' });
         }
 
@@ -234,7 +234,7 @@ const rejectRequest = async (req, res) => {
         }
 
         // RBAC: Check if manager belongs to the same POD
-        if (req.user.role === 'MANAGER' && req.user.pod_id !== request.pod_name) {
+        if (req.user.role === 'MANAGER' && req.user.pod_name !== request.pod_name) {
             return res.status(403).json({ error: 'You can only reject requests for your POD' });
         }
 
@@ -260,7 +260,7 @@ const updateRequest = async (req, res) => {
         }
 
         // RBAC: Check if manager belongs to the same POD
-        if (req.user.role === 'MANAGER' && req.user.pod_id !== request.pod_name) {
+        if (req.user.role === 'MANAGER' && req.user.pod_name !== request.pod_name) {
             return res.status(403).json({ error: 'You can only update requests for your POD' });
         }
 

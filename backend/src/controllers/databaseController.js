@@ -40,7 +40,7 @@ const getDatabases = async (req, res) => {
             const client = new Client({
                 user: instance.user,
                 host: instance.host,
-                database: instance.database, // Connect to default DB
+                database: 'postgres', // Connect to default postgres DB for listing
                 password: instance.password,
                 port: instance.port,
             });

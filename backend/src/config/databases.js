@@ -1,22 +1,24 @@
 module.exports = {
     databases: [
+        // PostgreSQL Instance (Docker container on port 5433)
+        // Available databases: ecommerce_db, hr_system, inventory_db, analytics_db
         {
-            name: 'primary-postgres',
+            name: 'test-postgres',
             type: 'POSTGRESQL',
             host: 'localhost',
-            port: 5432,
+            port: 5433,
             user: 'postgres',
-            password: 'password', // In production, use process.env.DB_PASSWORD
-            database: 'postgres' // Default DB to connect to for listing other DBs
+            password: 'password'
         },
+        // MongoDB Instance (Docker container on port 27017)
+        // Available databases: logs_db, customer_db, metrics_db, sessions_db
         {
-            name: 'analytics-mongo',
+            name: 'test-mongo',
             type: 'MONGODB',
             host: 'localhost',
             port: 27017,
             user: 'admin',
-            password: 'password', // In production, use process.env.MONGO_PASSWORD
-            database: 'admin' // Default DB to connect to
+            password: 'password'
         }
     ]
 };

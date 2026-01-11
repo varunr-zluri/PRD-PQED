@@ -5,6 +5,8 @@ const { executeScript } = require('./scriptExecutor');
 
 const executeRequest = async (request) => {
     console.log(`[ExecutionService] Starting execution for request ${request.id}`);
+    console.log(`[ExecutionService] Looking for instance_name: '${request.instance_name}', db_type: '${request.db_type}'`);
+    console.log(`[ExecutionService] Available instances:`, databases.map(db => ({ name: db.name, type: db.type })));
 
     try {
         // Fetch instance details from config
