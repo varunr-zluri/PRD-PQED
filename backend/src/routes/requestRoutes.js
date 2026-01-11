@@ -12,7 +12,5 @@ router.get('/:id', auth, requestController.getRequestById);
 
 // Manager only routes
 router.put('/:id', auth, requireRole('MANAGER'), requestController.updateRequest);
-router.post('/:id/approve', auth, requireRole('MANAGER'), requestController.approveRequest);
-router.post('/:id/reject', auth, requireRole('MANAGER'), requestController.rejectRequest);
 
 module.exports = router;

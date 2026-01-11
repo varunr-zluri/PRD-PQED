@@ -446,7 +446,7 @@
                     "response": []
                 },
                 {
-                    "name": "Get Instance Details",
+                    "name": "List Databases (by Params)",
                     "request": {
                         "method": "GET",
                         "header": [
@@ -457,38 +457,18 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{baseUrl}}/database-instances/{{dbInstance}}",
+                            "raw": "{{baseUrl}}/database-instances?instance={{dbInstance}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "database-instances",
-                                "{{dbInstance}}"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "List Databases in Instance",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/database-instances/{{dbInstance}}/databases",
-                            "host": [
-                                "{{baseUrl}}"
+                                "database-instances"
                             ],
-                            "path": [
-                                "database-instances",
-                                "{{dbInstance}}",
-                                "databases"
+                            "query": [
+                                {
+                                    "key": "instance",
+                                    "value": "{{dbInstance}}"
+                                }
                             ]
                         }
                     },
@@ -543,12 +523,12 @@
         },
         {
             "key": "dbInstance",
-            "value": "Zluri-ProdDB",
+            "value": "test-postgres",
             "type": "string"
         },
         {
             "key": "dbName",
-            "value": "postgres",
+            "value": "ecommerce_db",
             "type": "string"
         }
     ]

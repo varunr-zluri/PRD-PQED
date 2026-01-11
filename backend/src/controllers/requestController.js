@@ -169,86 +169,7 @@ const getRequestById = async (req, res) => {
     }
 };
 
-const approveRequest = async (req, res) => {
-    try {
-        const request = await QueryRequest.findByPk(req.params.id);
 
-        if (!request) {
-            return res.status(404).json({ error: 'Request not found' });
-        }
-
-        if (request.status !== 'PENDING') {
-            return res.status(400).json({ error: 'Request is not in PENDING status' });
-        }
-
-        // RBAC: Check if manager belongs to the same POD
-        if (req.user.role === 'MANAGER' && req.user.pod_name !== request.pod_name) {
-            return res.status(403).json({ error: 'You can only approve requests for your POD' });
-        }
-
-        // Update status to APPROVED
-        request.status = 'APPROVED';
-        request.approver_id = req.user.id;
-        request.approved_at = new Date();
-        await request.save();
-
-        // Trigger Execution (Async)
-        const executionResult = await executionService.executeRequest(request);
-
-        let executionStatus = 'FAILURE';
-        if (executionResult.success) {
-            request.status = 'EXECUTED';
-            executionStatus = 'SUCCESS';
-        } else {
-            request.status = 'FAILED';
-        }
-
-        // Create Execution Record
-        await QueryExecution.create({
-            query_request_id: request.id,
-            status: executionStatus,
-            result_data: executionResult.success ? JSON.stringify(executionResult.result) : null,
-            error_message: executionResult.success ? null : executionResult.error,
-            executed_at: new Date()
-        });
-
-        await request.save();
-
-        res.json(request);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-const rejectRequest = async (req, res) => {
-    try {
-        const { rejection_reason } = req.body;
-        const request = await QueryRequest.findByPk(req.params.id);
-
-        if (!request) {
-            return res.status(404).json({ error: 'Request not found' });
-        }
-
-        if (request.status !== 'PENDING') {
-            return res.status(400).json({ error: 'Request is not in PENDING status' });
-        }
-
-        // RBAC: Check if manager belongs to the same POD
-        if (req.user.role === 'MANAGER' && req.user.pod_name !== request.pod_name) {
-            return res.status(403).json({ error: 'You can only reject requests for your POD' });
-        }
-
-        request.status = 'REJECTED';
-        request.approver_id = req.user.id;
-        request.rejected_reason = rejection_reason;
-        await request.save();
-
-        res.json(request);
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
 
 const updateRequest = async (req, res) => {
     try {
@@ -322,7 +243,5 @@ module.exports = {
     getRequests,
     getMySubmissions,
     getRequestById,
-    approveRequest,
-    rejectRequest,
     updateRequest
 };
