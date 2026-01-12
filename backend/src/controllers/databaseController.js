@@ -5,10 +5,7 @@ const { MongoClient } = require('mongodb');
 const getResources = async (req, res) => {
     try {
         const { instance } = req.query;
-        console.log('[DEBUG] Query Params:', req.query);
-        console.log('[DEBUG] Instance Param:', instance);
 
-        // If specific instance is requested, return its databases
         if (instance) {
             const dbInstance = databases.find(db => db.name === instance);
 
@@ -30,13 +27,11 @@ const getResources = async (req, res) => {
                 const result = await client.query('SELECT datname FROM pg_database WHERE datistemplate = false;');
                 dbList = result.rows.map(row => row.datname);
                 await client.end();
-
             } else if (dbInstance.type === 'MONGODB') {
                 const url = `mongodb://${dbInstance.user}:${dbInstance.password}@${dbInstance.host}:${dbInstance.port}/?authSource=admin`;
                 const client = new MongoClient(url);
                 await client.connect();
-                const adminDb = client.db('admin');
-                const result = await adminDb.admin().listDatabases();
+                const result = await client.db('admin').admin().listDatabases();
                 dbList = result.databases.map(db => db.name);
                 await client.close();
             }
@@ -44,7 +39,6 @@ const getResources = async (req, res) => {
             return res.json({ databases: dbList });
         }
 
-        // Default: Return list of instances
         const instances = databases.map(db => ({
             name: db.name,
             type: db.type,
@@ -52,13 +46,9 @@ const getResources = async (req, res) => {
             port: db.port
         }));
         res.json(instances);
-
     } catch (error) {
-        console.error('Error fetching resources:', error);
         res.status(500).json({ error: 'Failed to fetch resources', details: error.message });
     }
 };
 
-module.exports = {
-    getResources
-};
+module.exports = { getResources };

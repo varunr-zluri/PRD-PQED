@@ -5,10 +5,7 @@ const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 
 const executeScript = async (instance, databaseName, scriptPath) => {
-    // Prepare temporary files list for cleanup
     const tempFiles = [];
-
-    // Prepare environment variables
     const env = {};
 
     try {
@@ -21,20 +18,15 @@ const executeScript = async (instance, databaseName, scriptPath) => {
                 password: instance.password,
                 ssl: false
             };
-
-            // Create temporary config file
             const tempConfigFile = path.join(os.tmpdir(), `db-config-${uuidv4()}.json`);
             fs.writeFileSync(tempConfigFile, JSON.stringify(config));
             tempFiles.push(tempConfigFile);
-
             env.DB_CONFIG_FILE = tempConfigFile;
-
         } else if (instance.type === 'MONGODB') {
             const authPart = instance.user ? `${encodeURIComponent(instance.user)}:${encodeURIComponent(instance.password)}@` : '';
             env.MONGO_URI = `mongodb://${authPart}${instance.host}:${instance.port}/${databaseName}?authSource=admin`;
         }
 
-        // Read script content
         if (!fs.existsSync(scriptPath)) {
             throw new Error('Script file not found');
         }
@@ -45,58 +37,32 @@ const executeScript = async (instance, databaseName, scriptPath) => {
 
         const vm = new NodeVM({
             console: 'redirect',
-            sandbox: {
-                process: {
-                    env: env
-                }
-            },
+            sandbox: { process: { env } },
             require: {
                 external: ['pg', 'mongodb', 'mongoose'],
                 builtin: ['fs', 'path', 'os', 'util'],
                 root: './',
             },
-            timeout: 60000 // 60s timeout
+            timeout: 60000
         });
 
-        // Capture logs
-        vm.on('console.log', (...args) => {
-            logs.push(args.join(' '));
-        });
-        vm.on('console.error', (...args) => {
-            errors.push(args.join(' '));
-        });
+        vm.on('console.log', (...args) => logs.push(args.join(' ')));
+        vm.on('console.error', (...args) => errors.push(args.join(' ')));
 
-
-        // Execute
         let scriptResult = vm.run(scriptContent, scriptPath);
 
-        // If the script exports a Promise (async function), await it
         if (scriptResult && typeof scriptResult.then === 'function') {
             scriptResult = await scriptResult;
         }
 
-        return {
-            output: scriptResult,
-            logs: logs,
-            errors: errors
-        };
-
-    } catch (error) {
-        throw error;
+        return { output: scriptResult, logs, errors };
     } finally {
-        // Cleanup temporary files
         tempFiles.forEach(file => {
             try {
-                if (fs.existsSync(file)) {
-                    fs.unlinkSync(file);
-                }
-            } catch (e) {
-                console.error(`Failed to delete temp file ${file}:`, e);
-            }
+                if (fs.existsSync(file)) fs.unlinkSync(file);
+            } catch (e) { /* ignore cleanup errors */ }
         });
     }
 };
 
-module.exports = {
-    executeScript
-};
+module.exports = { executeScript };

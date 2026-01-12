@@ -4,12 +4,7 @@ const { executeMongoQuery } = require('./mongoExecutor');
 const { executeScript } = require('./scriptExecutor');
 
 const executeRequest = async (request) => {
-    console.log(`[ExecutionService] Starting execution for request ${request.id}`);
-    console.log(`[ExecutionService] Looking for instance_name: '${request.instance_name}', db_type: '${request.db_type}'`);
-    console.log(`[ExecutionService] Available instances:`, databases.map(db => ({ name: db.name, type: db.type })));
-
     try {
-        // Fetch instance details from config
         const instance = databases.find(db => db.name === request.instance_name && db.type === request.db_type);
 
         if (!instance) {
@@ -20,24 +15,19 @@ const executeRequest = async (request) => {
 
         if (request.submission_type === 'SCRIPT') {
             result = await executeScript(instance, request.database_name, request.script_path);
+        } else if (request.db_type === 'POSTGRESQL') {
+            result = await executePostgresQuery(instance, request.database_name, request.query_content);
+        } else if (request.db_type === 'MONGODB') {
+            result = await executeMongoQuery(instance, request.database_name, request.query_content);
         } else {
-            // QUERY
-            if (request.db_type === 'POSTGRESQL') {
-                result = await executePostgresQuery(instance, request.database_name, request.query_content);
-            } else if (request.db_type === 'MONGODB') {
-                result = await executeMongoQuery(instance, request.database_name, request.query_content);
-            } else {
-                throw new Error('Unsupported database type');
-            }
+            throw new Error('Unsupported database type');
         }
 
         return { success: true, result };
     } catch (error) {
-        console.error(`[ExecutionService] Error executing request ${request.id}:`, error);
+        console.error(`[ExecutionService] Error:`, error.message);
         return { success: false, error: error.message };
     }
 };
 
-module.exports = {
-    executeRequest
-};
+module.exports = { executeRequest };
