@@ -40,8 +40,7 @@ const login = async (req, res) => {
 const logout = async (req, res) => {
     try {
         // In a stateless JWT setup, logout is client-side (clearing token).
-        // If we had a token blacklist (Redis), we would add it here.
-        // For now, just send success.
+        // For now, just sending success.
         res.send({ message: 'Logged out successfully' });
     } catch (error) {
         res.status(500).send();
@@ -70,7 +69,7 @@ const signup = async (req, res) => {
         // Check if user already exists
         const existingUser = await User.findOne({ where: { email } });
         if (existingUser) {
-            return res.status(400).json({ error: 'User with this email already exists' });
+            return res.status(400).json({ error: 'User with this email already exists, try logging in' });
         }
 
         // Create new user (default role: DEVELOPER as per plan)
@@ -79,7 +78,7 @@ const signup = async (req, res) => {
             email,
             password,
             name,
-            pod_name: pod_name || null, // Optional, but good to have if provided
+            pod_name: pod_name || null,
             role: 'DEVELOPER'
         });
 

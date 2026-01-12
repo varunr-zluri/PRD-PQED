@@ -1,13 +1,10 @@
 const { NodeVM } = require('vm2');
-const { decrypt } = require('../utils/crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 
 const executeScript = async (instance, databaseName, scriptPath) => {
-    const credentials = decrypt(instance.credentials_encrypted);
-
     // Prepare temporary files list for cleanup
     const tempFiles = [];
 
@@ -20,9 +17,9 @@ const executeScript = async (instance, databaseName, scriptPath) => {
                 host: instance.host,
                 port: instance.port,
                 database: databaseName,
-                user: credentials.username,
-                password: credentials.password,
-                ssl: { rejectUnauthorized: false } // Assuming typical cloud DB requirement
+                user: instance.user,
+                password: instance.password,
+                ssl: false
             };
 
             // Create temporary config file
@@ -33,8 +30,8 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             env.DB_CONFIG_FILE = tempConfigFile;
 
         } else if (instance.type === 'MONGODB') {
-            const authPart = credentials.username ? `${encodeURIComponent(credentials.username)}:${encodeURIComponent(credentials.password)}@` : '';
-            env.MONGO_URI = `mongodb://${authPart}${instance.host}:${instance.port}/${databaseName}`;
+            const authPart = instance.user ? `${encodeURIComponent(instance.user)}:${encodeURIComponent(instance.password)}@` : '';
+            env.MONGO_URI = `mongodb://${authPart}${instance.host}:${instance.port}/${databaseName}?authSource=admin`;
         }
 
         // Read script content
@@ -42,11 +39,6 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             throw new Error('Script file not found');
         }
         const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-
-        // Initialize NodeVM
-        // We allow 'console' to work naturally, but we might want to capture it.
-        // NodeVM by default sends console output to the host's console. 
-        // We need to override generic console to capture logs.
 
         let logs = [];
         let errors = [];
@@ -60,8 +52,8 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             },
             require: {
                 external: ['pg', 'mongodb', 'mongoose'],
-                builtin: ['fs', 'path', 'os', 'util'], // Basic builtins
-                root: './', // Allow requiring local modules if needed? Probably not for safety.
+                builtin: ['fs', 'path', 'os', 'util'],
+                root: './',
             },
             timeout: 60000 // 60s timeout
         });
@@ -74,17 +66,17 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             errors.push(args.join(' '));
         });
 
-        // Execute
-        // We wrap the user script in a way that allows async execution if they export a function or just run top-level.
-        // But FR says "Return script output as result". 
-        // We'll treat the return value of the script (module.exports or last expression) as the result if possible,
-        // or just rely on what they print. 
-        // Let's assume the script just runs.
 
-        const scriptResult = vm.run(scriptContent, scriptPath);
+        // Execute
+        let scriptResult = vm.run(scriptContent, scriptPath);
+
+        // If the script exports a Promise (async function), await it
+        if (scriptResult && typeof scriptResult.then === 'function') {
+            scriptResult = await scriptResult;
+        }
 
         return {
-            output: scriptResult, // This might be undefined if they just log things
+            output: scriptResult,
             logs: logs,
             errors: errors
         };
