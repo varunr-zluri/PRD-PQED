@@ -1,7 +1,6 @@
 module.exports = {
     databases: [
-        // PostgreSQL Instance (Docker container on port 5433)
-        // Available databases: ecommerce_db, hr_system, inventory_db, analytics_db
+        // Available postgres databases for test: ecommerce_db, hr_system, inventory_db, analytics_db
         {
             name: 'test-postgres',
             type: 'POSTGRESQL',
@@ -10,8 +9,7 @@ module.exports = {
             user: 'postgres',
             password: 'password'
         },
-        // MongoDB Instance (Docker container on port 27017)
-        // Available databases: logs_db, customer_db, metrics_db, sessions_db
+        // Available Mongo databases: logs_db, customer_db, metrics_db, sessions_db
         {
             name: 'test-mongo',
             type: 'MONGODB',

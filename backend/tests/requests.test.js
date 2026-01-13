@@ -168,4 +168,79 @@ describe('Request Endpoints', () => {
             }));
         });
     });
+
+    describe('GET /api/requests/:id', () => {
+        it('should return request by id', async () => {
+            const mockRequest = {
+                id: 1,
+                query_content: 'SELECT 1',
+                status: 'PENDING',
+                requester: { id: 1, name: 'Tester' }
+            };
+
+            QueryRequest.findByPk.mockResolvedValue(mockRequest);
+
+            const res = await request(app).get('/api/requests/1');
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toHaveProperty('id', 1);
+        });
+
+        it('should return 404 if request not found', async () => {
+            QueryRequest.findByPk.mockResolvedValue(null);
+
+            const res = await request(app).get('/api/requests/999');
+
+            expect(res.statusCode).toEqual(404);
+            expect(res.body).toHaveProperty('error', 'Request not found');
+        });
+    });
+
+    describe('POST /api/requests - validation', () => {
+        it('should return 400 if query content missing for QUERY type', async () => {
+            const requestData = {
+                db_type: 'POSTGRESQL',
+                instance_name: 'test-postgres',
+                database_name: 'users_db',
+                submission_type: 'QUERY',
+                query_content: '', // Empty
+                pod_name: 'pod-1'
+            };
+
+            const res = await request(app)
+                .post('/api/requests')
+                .send(requestData);
+
+            expect(res.statusCode).toEqual(400);
+            expect(res.body).toHaveProperty('error', 'Query content is required for QUERY submission');
+        });
+    });
+
+    describe('GET /api/requests - date range filter', () => {
+        it('should filter by date range', async () => {
+            QueryRequest.findAndCountAll.mockResolvedValue({
+                count: 0,
+                rows: []
+            });
+
+            await request(app).get('/api/requests?start_date=2026-01-01&end_date=2026-01-31');
+
+            expect(QueryRequest.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({
+                where: expect.objectContaining({
+                    created_at: expect.any(Object)
+                })
+            }));
+        });
+
+        it('should filter by search term', async () => {
+            QueryRequest.findAndCountAll.mockResolvedValue({
+                count: 0,
+                rows: []
+            });
+
+            await request(app).get('/api/requests?search=SELECT');
+
+            expect(QueryRequest.findAndCountAll).toHaveBeenCalled();
+        });
+    });
 });
