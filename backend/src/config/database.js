@@ -1,22 +1,59 @@
-const Sequelize = require('sequelize');
-const config = require('./env');
+const { MikroORM, RequestContext } = require('@mikro-orm/core');
+const mikroOrmConfig = require('../../mikro-orm.config');
 
-const sequelize = new Sequelize(
-    config.db.name,
-    config.db.user,
-    config.db.password,
-    {
-        host: config.db.host,
-        port: config.db.port,
-        dialect: 'postgres',
-        logging: config.env === 'development' ? console.log : false,
-        pool: {
-            max: 5,
-            min: 0,
-            acquire: 30000,
-            idle: 10000
-        }
+let orm = null;
+
+/**
+ * Initialize MikroORM
+ * @returns {Promise<MikroORM>}
+ */
+const initORM = async () => {
+    if (orm) return orm;
+
+    orm = await MikroORM.init(mikroOrmConfig);
+    return orm;
+};
+
+/**
+ * Get the ORM instance
+ * @returns {MikroORM}
+ */
+const getORM = () => {
+    if (!orm) {
+        throw new Error('ORM not initialized. Call initORM() first.');
     }
-);
+    return orm;
+};
 
-module.exports = sequelize;
+/**
+ * Get the EntityManager
+ * @returns {import('@mikro-orm/core').EntityManager}
+ */
+const getEM = () => {
+    return getORM().em;
+};
+
+/**
+ * Close ORM connection
+ */
+const closeORM = async () => {
+    if (orm) {
+        await orm.close();
+        orm = null;
+    }
+};
+
+/**
+ * Express middleware to create request-scoped EntityManager
+ */
+const ormMiddleware = (req, res, next) => {
+    RequestContext.create(getORM().em, next);
+};
+
+module.exports = {
+    initORM,
+    getORM,
+    getEM,
+    closeORM,
+    ormMiddleware
+};

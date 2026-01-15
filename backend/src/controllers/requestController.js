@@ -1,13 +1,14 @@
-const { QueryRequest, User, QueryExecution } = require('../models');
-const { Op } = require('sequelize');
+const { QueryRequest, User, QueryExecution } = require('../entities');
+const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
 
 const submitRequest = async (req, res) => {
     try {
         const { db_type, instance_name, database_name, submission_type, query_content, comments, pod_name } = req.body;
+        const em = getEM();
 
         const requestData = {
-            requester_id: req.user.id,
+            requester: req.user,
             db_type,
             instance_name,
             database_name,
@@ -26,7 +27,9 @@ const submitRequest = async (req, res) => {
             requestData.script_path = req.file.path;
         }
 
-        const request = await QueryRequest.create(requestData);
+        const request = em.create(QueryRequest, requestData);
+        await em.persistAndFlush(request);
+
         res.status(201).json(request);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -42,17 +45,20 @@ const buildWhereClause = (query) => {
     if (db_type) whereClause.db_type = db_type;
     if (submission_type) whereClause.submission_type = submission_type;
     if (database_name) whereClause.database_name = database_name;
-    if (requester_id) whereClause.requester_id = requester_id;
-    if (approver_id) whereClause.approver_id = approver_id;
+    if (requester_id) whereClause.requester = requester_id;
+    if (approver_id) whereClause.approver = approver_id;
 
     if (start_date && end_date) {
-        whereClause.created_at = { [Op.between]: [new Date(start_date), new Date(end_date)] };
+        whereClause.created_at = {
+            $gte: new Date(start_date),
+            $lte: new Date(end_date)
+        };
     }
 
     if (search) {
-        whereClause[Op.or] = [
-            { query_content: { [Op.iLike]: `%${search}%` } },
-            { comments: { [Op.iLike]: `%${search}%` } }
+        whereClause.$or = [
+            { query_content: { $like: `%${search}%` } },
+            { comments: { $like: `%${search}%` } }
         ];
     }
 
@@ -64,23 +70,32 @@ const getRequests = async (req, res) => {
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         const whereClause = buildWhereClause(req.query);
+        const em = getEM();
 
         if (req.user.role === 'MANAGER' && req.user.pod_name) {
             whereClause.pod_name = req.user.pod_name;
         }
 
-        const { count, rows } = await QueryRequest.findAndCountAll({
-            where: whereClause,
-            include: [
-                { model: User, as: 'requester', attributes: ['id', 'name', 'email'] },
-                { model: User, as: 'approver', attributes: ['id', 'name', 'email'] }
-            ],
-            order: [['created_at', 'DESC']],
+        const [rows, count] = await em.findAndCount(QueryRequest, whereClause, {
+            populate: ['requester', 'approver'],
+            orderBy: { created_at: 'DESC' },
             limit: parseInt(limit),
             offset: parseInt(offset)
         });
 
-        res.json({ requests: rows, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
+        // Transform results to include only needed user fields
+        const requests = rows.map(r => {
+            const obj = { ...r };
+            if (r.requester) {
+                obj.requester = { id: r.requester.id, name: r.requester.name, email: r.requester.email };
+            }
+            if (r.approver) {
+                obj.approver = { id: r.approver.id, name: r.approver.name, email: r.approver.email };
+            }
+            return obj;
+        });
+
+        res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -91,11 +106,11 @@ const getMySubmissions = async (req, res) => {
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         const whereClause = buildWhereClause(req.query);
-        whereClause.requester_id = req.user.id;
+        whereClause.requester = req.user.id;
+        const em = getEM();
 
-        const { count, rows } = await QueryRequest.findAndCountAll({
-            where: whereClause,
-            order: [['created_at', 'DESC']],
+        const [rows, count] = await em.findAndCount(QueryRequest, whereClause, {
+            orderBy: { created_at: 'DESC' },
             limit: parseInt(limit),
             offset: parseInt(offset)
         });
@@ -108,12 +123,9 @@ const getMySubmissions = async (req, res) => {
 
 const getRequestById = async (req, res) => {
     try {
-        const request = await QueryRequest.findByPk(req.params.id, {
-            include: [
-                { model: User, as: 'requester', attributes: ['id', 'name', 'email'] },
-                { model: User, as: 'approver', attributes: ['id', 'name', 'email'] },
-                { model: QueryExecution, as: 'executions' }
-            ]
+        const em = getEM();
+        const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) }, {
+            populate: ['requester', 'approver', 'executions']
         });
 
         if (!request) {
@@ -123,7 +135,14 @@ const getRequestById = async (req, res) => {
         // Access control based on role
         if (req.user.role === 'ADMIN') {
             // ADMIN can see all requests
-            return res.json(request);
+            const result = { ...request };
+            if (request.requester) {
+                result.requester = { id: request.requester.id, name: request.requester.name, email: request.requester.email };
+            }
+            if (request.approver) {
+                result.approver = { id: request.approver.id, name: request.approver.name, email: request.approver.email };
+            }
+            return res.json(result);
         }
 
         if (req.user.role === 'MANAGER') {
@@ -131,11 +150,19 @@ const getRequestById = async (req, res) => {
             if (request.pod_name !== req.user.pod_name) {
                 return res.status(403).json({ error: 'Access denied. Request belongs to a different POD.' });
             }
-            return res.json(request);
+            const result = { ...request };
+            if (request.requester) {
+                result.requester = { id: request.requester.id, name: request.requester.name, email: request.requester.email };
+            }
+            if (request.approver) {
+                result.approver = { id: request.approver.id, name: request.approver.name, email: request.approver.email };
+            }
+            return res.json(result);
         }
 
         // DEVELOPER can only see their own requests
-        if (request.requester_id !== req.user.id) {
+        const requesterId = request.requester?.id || request.requester;
+        if (requesterId !== req.user.id) {
             return res.status(403).json({ error: 'Access denied. You can only view your own requests.' });
         }
 
@@ -148,7 +175,8 @@ const getRequestById = async (req, res) => {
 const updateRequest = async (req, res) => {
     try {
         const { status, rejection_reason } = req.body;
-        const request = await QueryRequest.findByPk(req.params.id);
+        const em = getEM();
+        const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) });
 
         if (!request) {
             return res.status(404).json({ error: 'Request not found' });
@@ -164,23 +192,23 @@ const updateRequest = async (req, res) => {
             }
 
             request.status = 'APPROVED';
-            request.approver_id = req.user.id;
+            request.approver = req.user;
             request.approved_at = new Date();
-            await request.save();
+            await em.flush();
 
             const executionResult = await executionService.executeRequest(request);
             let executionStatus = executionResult.success ? 'SUCCESS' : 'FAILURE';
             request.status = executionResult.success ? 'EXECUTED' : 'FAILED';
 
-            await QueryExecution.create({
-                query_request_id: request.id,
+            const execution = em.create(QueryExecution, {
+                request: request,
                 status: executionStatus,
                 result_data: executionResult.success ? JSON.stringify(executionResult.result) : null,
                 error_message: executionResult.success ? null : executionResult.error,
                 executed_at: new Date()
             });
 
-            await request.save();
+            await em.persistAndFlush(execution);
             return res.json(request);
 
         } else if (status === 'REJECTED') {
@@ -189,9 +217,9 @@ const updateRequest = async (req, res) => {
             }
 
             request.status = 'REJECTED';
-            request.approver_id = req.user.id;
+            request.approver = req.user;
             request.rejected_reason = rejection_reason;
-            await request.save();
+            await em.flush();
             return res.json(request);
 
         }

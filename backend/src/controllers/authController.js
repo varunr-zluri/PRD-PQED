@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User } = require('../entities');
+const { getEM } = require('../config/database');
 const config = require('../config/env');
 
 const generateToken = (user) => {
@@ -11,9 +12,10 @@ const generateToken = (user) => {
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        const em = getEM();
 
         // Find user by email
-        const user = await User.findOne({ where: { email } });
+        const user = await em.findOne(User, { email });
         if (!user) {
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
@@ -28,7 +30,12 @@ const login = async (req, res) => {
         const token = generateToken(user);
 
         // Return user info and token (excluding password)
-        const { password: _pw, createdAt: _ca, updatedAt: _ua, ...userResp } = user.toJSON();
+        const userResp = user.toJSON();
+        delete userResp.createdAt;
+        delete userResp.updatedAt;
+        delete userResp.created_at;
+        delete userResp.updated_at;
+
         res.send({ user: userResp, token });
     } catch (error) {
         res.status(400).send({ error: error.message });
@@ -47,7 +54,11 @@ const logout = async (req, res) => {
 
 const getMe = async (req, res) => {
     try {
-        const { password: _pw, createdAt: _ca, updatedAt: _ua, ...userResp } = req.user.toJSON();
+        const userResp = req.user.toJSON();
+        delete userResp.createdAt;
+        delete userResp.updatedAt;
+        delete userResp.created_at;
+        delete userResp.updated_at;
         res.send(userResp);
     } catch (error) {
         res.status(500).send();
@@ -57,16 +68,16 @@ const getMe = async (req, res) => {
 const signup = async (req, res) => {
     try {
         const { email, password, name, pod_name } = req.body;
+        const em = getEM();
 
         // Check if user already exists
-        const existingUser = await User.findOne({ where: { email } });
+        const existingUser = await em.findOne(User, { email });
         if (existingUser) {
             return res.status(400).json({ error: 'User with this email already exists, try logging in' });
         }
 
         // Create new user (default role: DEVELOPER)
-        // Store pod_name if provided
-        const user = await User.create({
+        const user = em.create(User, {
             email,
             password,
             name,
@@ -74,8 +85,14 @@ const signup = async (req, res) => {
             role: 'DEVELOPER'
         });
 
+        await em.persistAndFlush(user);
+
         // Return success message and user info (excluding password and timestamps)
-        const { password: _pw, createdAt: _ca, updatedAt: _ua, ...userResp } = user.toJSON();
+        const userResp = user.toJSON();
+        delete userResp.createdAt;
+        delete userResp.updatedAt;
+        delete userResp.created_at;
+        delete userResp.updated_at;
 
         res.status(201).send({
             message: 'User registered successfully. Please login.',
