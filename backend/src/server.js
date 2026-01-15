@@ -9,7 +9,6 @@ const startServer = async () => {
         console.log('Database connection has been established successfully.');
 
         // Sync models (using force: false to not drop tables, alter: true to update schema)
-        // In production, we should use migrations instead of sync
         await db.sequelize.sync({ alter: true });
         console.log('Database models synchronized.');
 

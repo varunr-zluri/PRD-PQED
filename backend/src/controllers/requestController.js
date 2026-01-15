@@ -18,9 +18,6 @@ const submitRequest = async (req, res) => {
         };
 
         if (submission_type === 'QUERY') {
-            if (!query_content) {
-                return res.status(400).json({ error: 'Query content is required for QUERY submission' });
-            }
             requestData.query_content = query_content;
         } else if (submission_type === 'SCRIPT') {
             if (!req.file) {
@@ -123,6 +120,25 @@ const getRequestById = async (req, res) => {
             return res.status(404).json({ error: 'Request not found' });
         }
 
+        // Access control based on role
+        if (req.user.role === 'ADMIN') {
+            // ADMIN can see all requests
+            return res.json(request);
+        }
+
+        if (req.user.role === 'MANAGER') {
+            // MANAGER can only see requests from their POD
+            if (request.pod_name !== req.user.pod_name) {
+                return res.status(403).json({ error: 'Access denied. Request belongs to a different POD.' });
+            }
+            return res.json(request);
+        }
+
+        // DEVELOPER can only see their own requests
+        if (request.requester_id !== req.user.id) {
+            return res.status(403).json({ error: 'Access denied. You can only view your own requests.' });
+        }
+
         res.json(request);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -144,7 +160,7 @@ const updateRequest = async (req, res) => {
 
         if (status === 'APPROVED') {
             if (request.status !== 'PENDING') {
-                return res.status(400).json({ error: 'Request is not in PENDING status' });
+                return res.status(400).json({ error: 'Request is already approved' });
             }
 
             request.status = 'APPROVED';
@@ -178,8 +194,6 @@ const updateRequest = async (req, res) => {
             await request.save();
             return res.json(request);
 
-        } else {
-            return res.status(400).json({ error: 'Invalid status. Only APPROVED or REJECTED allowed.' });
         }
     } catch (error) {
         res.status(500).json({ error: error.message });

@@ -100,7 +100,8 @@ describe('RBAC Middleware', () => {
 
             middleware(mockReq, mockRes, mockNext);
 
-            expect(mockRes.status).toHaveBeenCalledWith(403);
+            expect(mockRes.status).toHaveBeenCalledWith(401);
+            expect(mockRes.json).toHaveBeenCalledWith({ error: 'Authentication required' });
         });
     });
 

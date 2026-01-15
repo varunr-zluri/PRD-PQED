@@ -40,10 +40,11 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             sandbox: { process: { env } },
             require: {
                 external: ['pg', 'mongodb', 'mongoose'],
-                builtin: ['fs', 'path', 'os', 'util'],
-                root: './',
+                builtin: ['path', 'util'],
+                root: './node_modules',
             },
-            timeout: 60000
+            timeout: 60000,
+            wasm: false
         });
 
         vm.on('console.log', (...args) => logs.push(args.join(' ')));

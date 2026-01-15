@@ -28,9 +28,7 @@ const login = async (req, res) => {
         const token = generateToken(user);
 
         // Return user info and token (excluding password)
-        const userResp = user.toJSON();
-        delete userResp.password;
-
+        const { password: _pw, createdAt: _ca, updatedAt: _ua, ...userResp } = user.toJSON();
         res.send({ user: userResp, token });
     } catch (error) {
         res.status(400).send({ error: error.message });
@@ -49,8 +47,7 @@ const logout = async (req, res) => {
 
 const getMe = async (req, res) => {
     try {
-        const userResp = req.user.toJSON();
-        delete userResp.password;
+        const { password: _pw, createdAt: _ca, updatedAt: _ua, ...userResp } = req.user.toJSON();
         res.send(userResp);
     } catch (error) {
         res.status(500).send();
@@ -61,18 +58,13 @@ const signup = async (req, res) => {
     try {
         const { email, password, name, pod_name } = req.body;
 
-        // Validation
-        if (!email || !password || !name) {
-            return res.status(400).json({ error: 'Email, password, and name are required' });
-        }
-
         // Check if user already exists
         const existingUser = await User.findOne({ where: { email } });
         if (existingUser) {
             return res.status(400).json({ error: 'User with this email already exists, try logging in' });
         }
 
-        // Create new user (default role: DEVELOPER as per plan)
+        // Create new user (default role: DEVELOPER)
         // Store pod_name if provided
         const user = await User.create({
             email,
@@ -82,11 +74,8 @@ const signup = async (req, res) => {
             role: 'DEVELOPER'
         });
 
-        // No token generation (redirect to login)
-
-        // Return success message
-        const userResp = user.toJSON();
-        delete userResp.password;
+        // Return success message and user info (excluding password and timestamps)
+        const { password: _pw, createdAt: _ca, updatedAt: _ua, ...userResp } = user.toJSON();
 
         res.status(201).send({
             message: 'User registered successfully. Please login.',

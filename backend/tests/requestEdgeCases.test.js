@@ -15,7 +15,7 @@ jest.mock('../src/models', () => ({
 }));
 
 jest.mock('../src/middleware/auth', () => jest.fn((req, res, next) => {
-    req.user = { id: 1, email: 'tester@example.com', role: 'DEVELOPER', pod_name: 'pod-1' };
+    req.user = { id: 1, email: 'tester@example.com', role: 'DEVELOPER', pod_name: 'POD_1' };
     next();
 }));
 
@@ -25,6 +25,14 @@ jest.mock('../src/utils/fileUpload', () => ({
         req.file = null; // No file uploaded
         next();
     }
+}));
+
+// Mock validators to pass through (validation happens in controller for script file)
+jest.mock('../src/validators', () => ({
+    validateBody: () => (req, res, next) => next(),
+    validateQuery: () => (req, res, next) => next(),
+    submitRequestSchema: {},
+    updateRequestSchema: {}
 }));
 
 jest.mock('../src/services/executionService', () => ({ executeRequest: jest.fn() }));
@@ -41,7 +49,7 @@ describe('Request Edge Cases', () => {
                 database_name: 'users_db',
                 submission_type: 'SCRIPT',
                 comments: 'Test script',
-                pod_name: 'pod-1'
+                pod_name: 'POD_1'
             };
 
             const res = await request(app)

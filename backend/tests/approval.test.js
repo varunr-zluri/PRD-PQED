@@ -25,12 +25,20 @@ jest.mock('../src/services/executionService', () => ({
 
 // Mock auth middleware to simulate Manager
 jest.mock('../src/middleware/auth', () => jest.fn((req, res, next) => {
-    req.user = { id: 2, email: 'manager@example.com', role: 'MANAGER', pod_name: 'pod-1' };
+    req.user = { id: 2, email: 'manager@example.com', role: 'MANAGER', pod_name: 'POD_1' };
     next();
 }));
 
 jest.mock('../src/utils/fileUpload', () => ({
     single: () => (req, res, next) => next()
+}));
+
+// Mock validators to pass through
+jest.mock('../src/validators', () => ({
+    validateBody: () => (req, res, next) => next(),
+    validateQuery: () => (req, res, next) => next(),
+    submitRequestSchema: {},
+    updateRequestSchema: {}
 }));
 
 // Mock uuid just in case, though config handles it
@@ -48,7 +56,7 @@ describe('Approval Endpoints', () => {
             const mockRequest = {
                 id: 1,
                 status: 'PENDING',
-                pod_name: 'pod-1',
+                pod_name: 'POD_1',
                 requester_id: 1,
                 save: jest.fn().mockResolvedValue(true)
             };
@@ -57,7 +65,7 @@ describe('Approval Endpoints', () => {
             executionService.executeRequest.mockResolvedValue({ success: true, result: [] });
 
             const res = await request(app)
-                .put('/api/requests/1')
+                .patch('/api/requests/1')
                 .send({ status: 'APPROVED' });
 
             expect(res.statusCode).toEqual(200);
@@ -70,7 +78,7 @@ describe('Approval Endpoints', () => {
             const mockRequest = {
                 id: 1,
                 status: 'PENDING',
-                pod_name: 'pod-1',
+                pod_name: 'POD_1',
                 requester_id: 1,
                 save: jest.fn().mockResolvedValue(true)
             };
@@ -78,7 +86,7 @@ describe('Approval Endpoints', () => {
             QueryRequest.findByPk.mockResolvedValue(mockRequest);
 
             const res = await request(app)
-                .put('/api/requests/1')
+                .patch('/api/requests/1')
                 .send({ status: 'REJECTED', rejection_reason: 'Bad query' });
 
             expect(res.statusCode).toEqual(200);
@@ -105,7 +113,7 @@ describe('Approval Endpoints', () => {
             QueryRequest.findByPk.mockResolvedValue(mockRequest);
 
             const res = await request(app)
-                .put('/api/requests/2')
+                .patch('/api/requests/2')
                 .send({ status: 'APPROVED' });
 
             expect(res.statusCode).toEqual(403);
