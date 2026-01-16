@@ -1,6 +1,21 @@
 const { QueryRequest, User, QueryExecution } = require('../entities');
 const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
+const fs = require('fs');
+const path = require('path');
+
+// Helper function to read script content safely
+const readScriptContent = (scriptPath) => {
+    try {
+        if (scriptPath && fs.existsSync(scriptPath)) {
+            return fs.readFileSync(scriptPath, 'utf-8');
+        }
+        return null;
+    } catch (error) {
+        console.error('Error reading script file:', error);
+        return null;
+    }
+};
 
 const submitRequest = async (req, res) => {
     try {
@@ -132,32 +147,33 @@ const getRequestById = async (req, res) => {
             return res.status(404).json({ error: 'Request not found' });
         }
 
+        // Build result object with user info and script content
+        const buildResult = (req) => {
+            const result = { ...req };
+            if (req.requester) {
+                result.requester = { id: req.requester.id, name: req.requester.name, email: req.requester.email };
+            }
+            if (req.approver) {
+                result.approver = { id: req.approver.id, name: req.approver.name, email: req.approver.email };
+            }
+            // Include script content for SCRIPT type submissions
+            if (req.submission_type === 'SCRIPT' && req.script_path) {
+                result.script_content = readScriptContent(req.script_path);
+                result.script_filename = path.basename(req.script_path);
+            }
+            return result;
+        };
+
         // Access control based on role
         if (req.user.role === 'ADMIN') {
-            // ADMIN can see all requests
-            const result = { ...request };
-            if (request.requester) {
-                result.requester = { id: request.requester.id, name: request.requester.name, email: request.requester.email };
-            }
-            if (request.approver) {
-                result.approver = { id: request.approver.id, name: request.approver.name, email: request.approver.email };
-            }
-            return res.json(result);
+            return res.json(buildResult(request));
         }
 
         if (req.user.role === 'MANAGER') {
-            // MANAGER can only see requests from their POD
             if (request.pod_name !== req.user.pod_name) {
                 return res.status(403).json({ error: 'Access denied. Request belongs to a different POD.' });
             }
-            const result = { ...request };
-            if (request.requester) {
-                result.requester = { id: request.requester.id, name: request.requester.name, email: request.requester.email };
-            }
-            if (request.approver) {
-                result.approver = { id: request.approver.id, name: request.approver.name, email: request.approver.email };
-            }
-            return res.json(result);
+            return res.json(buildResult(request));
         }
 
         // DEVELOPER can only see their own requests
@@ -166,7 +182,7 @@ const getRequestById = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. You can only view your own requests.' });
         }
 
-        res.json(request);
+        res.json(buildResult(request));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

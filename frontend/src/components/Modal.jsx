@@ -1,7 +1,9 @@
 import { X } from 'lucide-react';
 
-const Modal = ({ isOpen, onClose, title, children, footer }) => {
+const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
     if (!isOpen) return null;
+
+    const sizeClass = size === 'lg' ? 'modal-lg' : '';
 
     return (
         <div
@@ -9,7 +11,7 @@ const Modal = ({ isOpen, onClose, title, children, footer }) => {
             onClick={onClose}
         >
             <div
-                className="modal-content"
+                className={`modal-content ${sizeClass}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="modal-header">

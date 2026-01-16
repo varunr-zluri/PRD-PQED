@@ -1,6 +1,6 @@
 const app = require('./app');
 const config = require('./config/env');
-const { initORM, getORM, closeORM } = require('./config/database');
+const { initORM, closeORM } = require('./config/database');
 
 const startServer = async () => {
     try {
@@ -8,7 +8,9 @@ const startServer = async () => {
         const orm = await initORM();
         console.log('MikroORM connection has been established successfully.');
 
-        // Sync schema (create tables if they don't exist, update if needed)
+        // Schema sync:
+        // Use updateSchema() to apply changes without wiping data.
+        // If you need to completely reset the DB, use refreshDatabase() manually or via a script.
         const generator = orm.getSchemaGenerator();
         await generator.updateSchema();
         console.log('Database schema synchronized.');

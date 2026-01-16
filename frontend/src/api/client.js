@@ -100,13 +100,13 @@ export const getRequestById = async (id) => {
 
 // Approve a request
 export const approveRequest = async (id) => {
-    const response = await api.put(`/requests/${id}`, { status: 'APPROVED' });
+    const response = await api.patch(`/requests/${id}`, { status: 'APPROVED' });
     return response.data;
 };
 
 // Reject a request
 export const rejectRequest = async (id, rejectionReason = '') => {
-    const response = await api.put(`/requests/${id}`, {
+    const response = await api.patch(`/requests/${id}`, {
         status: 'REJECTED',
         rejection_reason: rejectionReason
     });

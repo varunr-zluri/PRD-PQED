@@ -281,7 +281,7 @@ const SubmitRequest = () => {
                                 onChange={handleChange}
                             >
                                 {pods.map(pod => (
-                                    <option key={pod.id} value={pod.name}>{pod.name}</option>
+                                    <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
                                 ))}
                             </select>
                         </div>

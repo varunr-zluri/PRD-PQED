@@ -5,7 +5,7 @@ const config = require('../config/env');
 
 const generateToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role }, config.jwt.secret, {
-        expiresIn: '24h'
+        expiresIn: '12h'
     });
 };
 
@@ -29,14 +29,8 @@ const login = async (req, res) => {
         // Generate token
         const token = generateToken(user);
 
-        // Return user info and token (excluding password)
-        const userResp = user.toJSON();
-        delete userResp.createdAt;
-        delete userResp.updatedAt;
-        delete userResp.created_at;
-        delete userResp.updated_at;
-
-        res.send({ user: userResp, token });
+        // Return user info and token (excluding password, timestamps, relationships via User.toJSON)
+        res.send({ user: user.toJSON(), token });
     } catch (error) {
         res.status(400).send({ error: error.message });
     }
@@ -54,12 +48,7 @@ const logout = async (req, res) => {
 
 const getMe = async (req, res) => {
     try {
-        const userResp = req.user.toJSON();
-        delete userResp.createdAt;
-        delete userResp.updatedAt;
-        delete userResp.created_at;
-        delete userResp.updated_at;
-        res.send(userResp);
+        res.send(req.user.toJSON());
     } catch (error) {
         res.status(500).send();
     }
@@ -87,16 +76,10 @@ const signup = async (req, res) => {
 
         await em.persistAndFlush(user);
 
-        // Return success message and user info (excluding password and timestamps)
-        const userResp = user.toJSON();
-        delete userResp.createdAt;
-        delete userResp.updatedAt;
-        delete userResp.created_at;
-        delete userResp.updated_at;
-
+        // Return success message and user info
         res.status(201).send({
             message: 'User registered successfully. Please login.',
-            user: userResp
+            user: user.toJSON()
         });
     } catch (error) {
         console.error('Signup error:', error);

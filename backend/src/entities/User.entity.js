@@ -32,8 +32,17 @@ class User {
     }
 
     toJSON() {
-        const { password, ...rest } = this;
-        return rest;
+        
+        //const { password, ...rest } = this;
+        //return rest;
+        // Explicitly return only the fields we want (avoids MikroORM Collection proxy issues)
+        return {
+            id: this.id,
+            email: this.email,
+            name: this.name,
+            pod_name: this.pod_name,
+            role: this.role
+        };
     }
 }
 

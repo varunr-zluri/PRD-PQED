@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { getMySubmissions, getPods } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
-import Modal from '../components/Modal';
+import RequestDetailModal from '../components/RequestDetailModal';
 import { Search, Copy, Eye, FileText, Inbox } from 'lucide-react';
 
 const MySubmissions = () => {
@@ -24,7 +24,7 @@ const MySubmissions = () => {
     });
 
     // Modal state
-    const [selectedRequest, setSelectedRequest] = useState(null);
+    const [selectedRequestId, setSelectedRequestId] = useState(null);
 
     const fetchRequests = useCallback(async (page = 1) => {
         setLoading(true);
@@ -56,12 +56,18 @@ const MySubmissions = () => {
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+        setFilters(prev => {
+            const updated = { ...prev, [name]: value };
+            // Auto-set end_date to today when start_date is set and end_date is empty
+            if (name === 'start_date' && value && !prev.end_date) {
+                updated.end_date = new Date().toISOString().split('T')[0];
+            }
+            return updated;
+        });
     };
 
     const handleClone = (request) => {
         // Navigate to submit page with pre-filled data
-        // We'll store the clone data in sessionStorage and handle it in SubmitRequest
         sessionStorage.setItem('cloneRequest', JSON.stringify({
             instance_name: request.instance_name,
             database_name: request.database_name,
@@ -122,7 +128,7 @@ const MySubmissions = () => {
                     >
                         <option value="">All PODs</option>
                         {pods.map(pod => (
-                            <option key={pod.id} value={pod.name}>{pod.name}</option>
+                            <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
                         ))}
                     </select>
                 </div>
@@ -203,7 +209,7 @@ const MySubmissions = () => {
                                         <td>{req.db_type}</td>
                                         <td>
                                             {req.submission_type === 'QUERY' ? (
-                                                <div className="query-preview">
+                                                <div className="query-preview" onClick={() => setSelectedRequestId(req.id)}>
                                                     {req.query_content?.substring(0, 50) || '—'}
                                                 </div>
                                             ) : (
@@ -220,7 +226,7 @@ const MySubmissions = () => {
                                                 <button
                                                     className="btn btn-icon btn-secondary"
                                                     title="View Details"
-                                                    onClick={() => setSelectedRequest(req)}
+                                                    onClick={() => setSelectedRequestId(req.id)}
                                                 >
                                                     <Eye size={16} />
                                                 </button>
@@ -249,63 +255,13 @@ const MySubmissions = () => {
                 onPageChange={(page) => fetchRequests(page)}
             />
 
-            {/* View Modal */}
-            <Modal
-                isOpen={!!selectedRequest}
-                onClose={() => setSelectedRequest(null)}
-                title={`Request #${selectedRequest?.id}`}
-            >
-                {selectedRequest && (
-                    <div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Database:</strong> {selectedRequest.instance_name} / {selectedRequest.database_name}
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Type:</strong> {selectedRequest.db_type} ({selectedRequest.submission_type})
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>POD:</strong> {selectedRequest.pod_name}
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Status:</strong> <StatusBadge status={selectedRequest.status} />
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Submitted:</strong> {formatDate(selectedRequest.created_at)}
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Comments:</strong>
-                            <p style={{ margin: '8px 0', color: 'var(--text-secondary)' }}>{selectedRequest.comments}</p>
-                        </div>
-                        {selectedRequest.query_content && (
-                            <div style={{ marginBottom: '16px' }}>
-                                <strong>Query:</strong>
-                                <pre style={{
-                                    background: 'var(--bg-light)',
-                                    padding: '12px',
-                                    borderRadius: '6px',
-                                    overflow: 'auto',
-                                    fontSize: '0.875rem',
-                                    marginTop: '8px'
-                                }}>
-                                    {selectedRequest.query_content}
-                                </pre>
-                            </div>
-                        )}
-                        {selectedRequest.status === 'REJECTED' && selectedRequest.rejected_reason && (
-                            <div style={{
-                                marginTop: '16px',
-                                padding: '12px',
-                                background: '#fee2e2',
-                                borderRadius: '6px',
-                                color: '#991b1b'
-                            }}>
-                                <strong>Rejection Reason:</strong>
-                                <p style={{ margin: '8px 0 0' }}>{selectedRequest.rejected_reason}</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Modal>
+            {/* Request Detail Modal (view only, no actions for developers) */}
+            <RequestDetailModal
+                requestId={selectedRequestId}
+                isOpen={!!selectedRequestId}
+                onClose={() => setSelectedRequestId(null)}
+                showActions={false}
+            />
         </div>
     );
 };

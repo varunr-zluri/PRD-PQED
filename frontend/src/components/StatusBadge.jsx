@@ -4,6 +4,8 @@ const statusStyles = {
     EXECUTED: { bg: '#d1fae5', color: '#065f46', label: 'Executed' },
     FAILED: { bg: '#fee2e2', color: '#991b1b', label: 'Failed' },
     REJECTED: { bg: '#fecaca', color: '#991b1b', label: 'Rejected' },
+    SUCCESS: { bg: '#d1fae5', color: '#065f46', label: 'Success' },
+    FAILURE: { bg: '#fee2e2', color: '#991b1b', label: 'Failure' },
 };
 
 const StatusBadge = ({ status }) => {
