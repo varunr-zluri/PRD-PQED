@@ -4,11 +4,25 @@ const executionService = require('../services/executionService');
 const fs = require('fs');
 const path = require('path');
 
-// Helper function to read script content safely
+// Define allowed upload directory for scripts (prevents path traversal)
+const SCRIPTS_UPLOAD_DIR = path.resolve(__dirname, '../../uploads/scripts');
+
+// Helper function to read script content safely with path traversal protection
 const readScriptContent = (scriptPath) => {
     try {
-        if (scriptPath && fs.existsSync(scriptPath)) {
-            return fs.readFileSync(scriptPath, 'utf-8');
+        if (!scriptPath) return null;
+
+        // Resolve to absolute path
+        const resolvedPath = path.resolve(scriptPath);
+
+        // Security check: Ensure path is within allowed upload directory
+        if (!resolvedPath.startsWith(SCRIPTS_UPLOAD_DIR)) {
+            console.error('Security: Attempted path traversal blocked:', scriptPath);
+            return null;
+        }
+
+        if (fs.existsSync(resolvedPath)) {
+            return fs.readFileSync(resolvedPath, 'utf-8');
         }
         return null;
     } catch (error) {
