@@ -48,6 +48,28 @@ class QueryRequest {
         this.updated_at = new Date();
         this.executions = new Collection(this);
     }
+
+    // Clean JSON output - exclude internal fields
+    toJSON() {
+        return {
+            id: this.id,
+            db_type: this.db_type,
+            instance_name: this.instance_name,
+            database_name: this.database_name,
+            submission_type: this.submission_type,
+            query_content: this.query_content,
+            comments: this.comments,
+            pod_name: this.pod_name,
+            status: this.status,
+            approved_at: this.approved_at,
+            rejected_reason: this.rejected_reason,
+            created_at: this.created_at,
+            updated_at: this.updated_at,
+            // Flatten requester/approver to essential fields
+            requester: this.requester ? { id: this.requester.id, name: this.requester.name, email: this.requester.email } : null,
+            approver: this.approver ? { id: this.approver.id, name: this.approver.name, email: this.approver.email } : null
+        };
+    }
 }
 
 const QueryRequestSchema = new EntitySchema({

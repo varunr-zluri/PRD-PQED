@@ -1,6 +1,7 @@
 const { QueryRequest, User, QueryExecution } = require('../entities');
 const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
+const slackService = require('../services/slackService');
 const fs = require('fs');
 const path = require('path');
 
@@ -59,7 +60,16 @@ const submitRequest = async (req, res) => {
         const request = em.create(QueryRequest, requestData);
         await em.persistAndFlush(request);
 
-        res.status(201).json(request);
+        // Find manager for the POD to send DM
+        const manager = await em.findOne(User, { role: 'MANAGER', pod_name });
+        const managerEmail = manager?.email || null;
+
+        // Send Slack notification for new submission (channel + manager DM)
+        slackService.notifyNewSubmission(request, req.user, managerEmail).catch(err =>
+            console.error('[Slack] Notification failed:', err.message)
+        );
+
+        res.status(201).json(request.toJSON());
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
@@ -111,18 +121,8 @@ const getRequests = async (req, res) => {
             limit: parseInt(limit),
             offset: parseInt(offset)
         });
-
-        // Transform results to include only needed user fields
-        const requests = rows.map(r => {
-            const obj = { ...r };
-            if (r.requester) {
-                obj.requester = { id: r.requester.id, name: r.requester.name, email: r.requester.email };
-            }
-            if (r.approver) {
-                obj.approver = { id: r.approver.id, name: r.approver.name, email: r.approver.email };
-            }
-            return obj;
-        });
+        // Use toJSON for clean response
+        const requests = rows.map(r => r.toJSON());
 
         res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
@@ -144,7 +144,10 @@ const getMySubmissions = async (req, res) => {
             offset: parseInt(offset)
         });
 
-        res.json({ requests: rows, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
+        // Use toJSON for clean response
+        const requests = rows.map(r => r.toJSON());
+
+        res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -161,19 +164,23 @@ const getRequestById = async (req, res) => {
             return res.status(404).json({ error: 'Request not found' });
         }
 
-        // Build result object with user info and script content
-        const buildResult = (req) => {
-            const result = { ...req };
-            if (req.requester) {
-                result.requester = { id: req.requester.id, name: req.requester.name, email: req.requester.email };
-            }
-            if (req.approver) {
-                result.approver = { id: req.approver.id, name: req.approver.name, email: req.approver.email };
-            }
+        // Build result object using toJSON and add script content if applicable
+        const buildResult = (r) => {
+            const result = r.toJSON();
             // Include script content for SCRIPT type submissions
-            if (req.submission_type === 'SCRIPT' && req.script_path) {
-                result.script_content = readScriptContent(req.script_path);
-                result.script_filename = path.basename(req.script_path);
+            if (r.submission_type === 'SCRIPT' && r.script_path) {
+                result.script_content = readScriptContent(r.script_path);
+                result.script_filename = path.basename(r.script_path);
+            }
+            // Include executions if populated
+            if (r.executions && r.executions.isInitialized()) {
+                result.executions = r.executions.getItems().map(e => ({
+                    id: e.id,
+                    status: e.status,
+                    result_data: e.result_data,
+                    error_message: e.error_message,
+                    executed_at: e.executed_at
+                }));
             }
             return result;
         };
@@ -206,7 +213,10 @@ const updateRequest = async (req, res) => {
     try {
         const { status, rejection_reason } = req.body;
         const em = getEM();
-        const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) });
+        // Populate requester to get email for Slack DM
+        const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) }, {
+            populate: ['requester']
+        });
 
         if (!request) {
             return res.status(404).json({ error: 'Request not found' });
@@ -239,7 +249,14 @@ const updateRequest = async (req, res) => {
             });
 
             await em.persistAndFlush(execution);
-            return res.json(request);
+
+            // Send Slack notification for approval result (channel + DM to requester)
+            const requesterEmail = request.requester?.email;
+            slackService.notifyApprovalResult(request, req.user, executionResult, requesterEmail).catch(err =>
+                console.error('[Slack] Notification failed:', err.message)
+            );
+
+            return res.json(request.toJSON());
 
         } else if (status === 'REJECTED') {
             if (request.status !== 'PENDING') {
@@ -250,7 +267,17 @@ const updateRequest = async (req, res) => {
             request.approver = req.user;
             request.rejected_reason = rejection_reason;
             await em.flush();
-            return res.json(request);
+
+            // Send Slack notification for rejection
+            // Get requester email for DM
+            const requester = await em.findOne(User, { id: request.requester?.id || request.requester });
+            if (requester) {
+                slackService.notifyRejection(request, req.user, requester.email, rejection_reason).catch(err =>
+                    console.error('[Slack] Notification failed:', err.message)
+                );
+            }
+
+            return res.json(request.toJSON());
 
         }
     } catch (error) {

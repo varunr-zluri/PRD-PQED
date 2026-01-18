@@ -7,7 +7,8 @@ const executePostgresQuery = async (instance, databaseName, query) => {
         database: databaseName,
         user: instance.user,
         password: instance.password,
-        ssl: false // In prod, might need SSL
+        // Use instance.ssl if defined, otherwise enable SSL with rejectUnauthorized:false for cloud DBs
+        ssl: instance.ssl !== undefined ? instance.ssl : { rejectUnauthorized: false }
     });
 
     try {

@@ -16,7 +16,6 @@
         ]
     },
     "item": [
-        
         {
             "name": "Auth",
             "item": [
@@ -38,18 +37,29 @@
                         }
                     ],
                     "request": {
-                        "auth": { "type": "noauth" },
+                        "auth": {
+                            "type": "noauth"
+                        },
                         "method": "POST",
                         "header": [],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"email\": \"dev@zluri.com\",\n    \"password\": \"password123\",\n    \"name\": \"Test Developer\",\n    \"pod_name\": \"pod-1\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{baseUrl}}/auth/signup",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "signup"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "signup"
+                            ]
                         }
                     },
                     "response": []
@@ -77,18 +87,29 @@
                         }
                     ],
                     "request": {
-                        "auth": { "type": "noauth" },
+                        "auth": {
+                            "type": "noauth"
+                        },
                         "method": "POST",
                         "header": [],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"email\": \"dev@zluri.com\",\n    \"password\": \"password123\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{baseUrl}}/auth/login",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "login"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
                         }
                     },
                     "response": []
@@ -100,8 +121,13 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/auth/me",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "me"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
                         }
                     },
                     "response": []
@@ -126,8 +152,13 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/auth/logout",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "logout"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "logout"
+                            ]
                         }
                     },
                     "response": []
@@ -138,23 +169,45 @@
             "name": "Database Instances",
             "item": [
                 {
-                    "name": "Get Resources",
+                    "name": "Get All Instances",
                     "request": {
                         "method": "GET",
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/database-instances",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["database-instances"],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "database-instances"
+                            ]
+                        },
+                        "description": "Returns list of available database instances (name and type only, no credentials)"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Databases for Instance",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/database-instances?instance={{dbInstance}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "database-instances"
+                            ],
                             "query": [
                                 {
                                     "key": "instance",
                                     "value": "{{dbInstance}}",
-                                    "description": "Optional: filter by instance name",
-                                    "disabled": true
+                                    "description": "Instance name to get databases for"
                                 }
                             ]
-                        }
+                        },
+                        "description": "Returns list of database names available in the specified instance"
                     },
                     "response": []
                 }
@@ -170,8 +223,12 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/pods",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["pods"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "pods"
+                            ]
                         }
                     },
                     "response": []
@@ -203,12 +260,20 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"db_type\": \"POSTGRESQL\",\n    \"instance_name\": \"{{dbInstance}}\",\n    \"database_name\": \"{{dbName}}\",\n    \"submission_type\": \"QUERY\",\n    \"query_content\": \"SELECT * FROM users LIMIT 10;\",\n    \"pod_name\": \"{{podName}}\",\n    \"comments\": \"Test query request\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{baseUrl}}/requests",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests"
+                            ]
                         }
                     },
                     "response": []
@@ -235,19 +300,51 @@
                         "body": {
                             "mode": "formdata",
                             "formdata": [
-                                { "key": "db_type", "value": "POSTGRESQL", "type": "text" },
-                                { "key": "instance_name", "value": "{{dbInstance}}", "type": "text" },
-                                { "key": "database_name", "value": "{{dbName}}", "type": "text" },
-                                { "key": "submission_type", "value": "SCRIPT", "type": "text" },
-                                { "key": "pod_name", "value": "{{podName}}", "type": "text" },
-                                { "key": "comments", "value": "Script submission", "type": "text" },
-                                { "key": "script_file", "type": "file", "src": [] }
+                                {
+                                    "key": "db_type",
+                                    "value": "POSTGRESQL",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "instance_name",
+                                    "value": "{{dbInstance}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "database_name",
+                                    "value": "{{dbName}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "submission_type",
+                                    "value": "SCRIPT",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "pod_name",
+                                    "value": "{{podName}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "comments",
+                                    "value": "Script submission",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "script_file",
+                                    "type": "file",
+                                    "src": []
+                                }
                             ]
                         },
                         "url": {
                             "raw": "{{baseUrl}}/requests",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests"
+                            ]
                         }
                     },
                     "response": []
@@ -259,18 +356,56 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/requests?page=1&limit=10",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests"],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests"
+                            ],
                             "query": [
-                                { "key": "page", "value": "1" },
-                                { "key": "limit", "value": "10" },
-                                { "key": "status", "value": "PENDING", "disabled": true },
-                                { "key": "pod_name", "value": "{{podName}}", "disabled": true },
-                                { "key": "db_type", "value": "POSTGRESQL", "disabled": true },
-                                { "key": "submission_type", "value": "QUERY", "disabled": true },
-                                { "key": "start_date", "value": "2024-01-01", "disabled": true },
-                                { "key": "end_date", "value": "2024-12-31", "disabled": true },
-                                { "key": "search", "value": "", "disabled": true }
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "PENDING",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "pod_name",
+                                    "value": "{{podName}}",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "db_type",
+                                    "value": "POSTGRESQL",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "submission_type",
+                                    "value": "QUERY",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "start_date",
+                                    "value": "2024-01-01",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "end_date",
+                                    "value": "2024-12-31",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "",
+                                    "disabled": true
+                                }
                             ]
                         }
                     },
@@ -283,13 +418,32 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/requests/my-submissions?page=1&limit=10",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests", "my-submissions"],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests",
+                                "my-submissions"
+                            ],
                             "query": [
-                                { "key": "page", "value": "1" },
-                                { "key": "limit", "value": "10" },
-                                { "key": "status", "value": "PENDING", "disabled": true },
-                                { "key": "search", "value": "", "disabled": true }
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "PENDING",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "",
+                                    "disabled": true
+                                }
                             ]
                         }
                     },
@@ -302,8 +456,13 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/requests/{{requestId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests", "{{requestId}}"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests",
+                                "{{requestId}}"
+                            ]
                         }
                     },
                     "response": []
@@ -316,12 +475,21 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"status\": \"APPROVED\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{baseUrl}}/requests/{{requestId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests", "{{requestId}}"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests",
+                                "{{requestId}}"
+                            ]
                         }
                     },
                     "response": []
@@ -334,12 +502,21 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"status\": \"REJECTED\",\n    \"rejection_reason\": \"Query needs optimization\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{baseUrl}}/requests/{{requestId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests", "{{requestId}}"]
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests",
+                                "{{requestId}}"
+                            ]
                         }
                     },
                     "response": []
@@ -348,12 +525,40 @@
         }
     ],
     "variable": [
-        { "key": "baseUrl", "value": "http://localhost:3000/api", "type": "string" },
-        { "key": "token", "value": "", "type": "string" },
-        { "key": "userId", "value": "", "type": "string" },
-        { "key": "requestId", "value": "1", "type": "string" },
-        { "key": "podName", "value": "pod-1", "type": "string" },
-        { "key": "dbInstance", "value": "test-postgres", "type": "string" },
-        { "key": "dbName", "value": "ecommerce_db", "type": "string" }
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000/api",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "userId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "requestId",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "podName",
+            "value": "pod-1",
+            "type": "string"
+        },
+        {
+            "key": "dbInstance",
+            "value": "test-postgres",
+            "type": "string"
+        },
+        {
+            "key": "dbName",
+            "value": "postgres",
+            "type": "string"
+        }
     ]
 }

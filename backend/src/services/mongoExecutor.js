@@ -19,13 +19,24 @@ const executeMongoQuery = async (instance, databaseName, queryContent) => {
         throw new Error('Failed to parse query arguments: ' + e.message);
     }
 
-    const authPart = instance.user ? `${instance.user}:${instance.password}@` : '';
-    const uri = `mongodb://${authPart}${instance.host}:${instance.port}/${databaseName}?authSource=admin`;
+    // Support both Atlas SRV connection string and standard URI
+    let uri;
+    if (instance.connectionString) {
+        // Use provided connection string (for Atlas SRV)
+        uri = instance.connectionString.replace('/?', `/${databaseName}?`);
+    } else {
+        // Construct standard URI
+        const authPart = instance.user ? `${instance.user}:${instance.password}@` : '';
+        uri = `mongodb://${authPart}${instance.host}:${instance.port}/${databaseName}?authSource=admin`;
+    }
 
     let client;
     try {
         const MongoClient = mongoose.mongo.MongoClient;
-        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+        client = new MongoClient(uri, {
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 30000  // 30s timeout for operations
+        });
         await client.connect();
 
         const db = client.db(databaseName);
@@ -35,7 +46,15 @@ const executeMongoQuery = async (instance, databaseName, queryContent) => {
             throw new Error(`Method ${method} not supported on collection`);
         }
 
-        const result = await collection[method](...args);
+        let result;
+        // Add maxTimeMS to limit query execution time
+        if (method === 'find') {
+            result = await collection.find(...args).maxTimeMS(30000);
+        } else if (method === 'aggregate') {
+            result = await collection.aggregate(...args, { maxTimeMS: 30000 });
+        } else {
+            result = await collection[method](...args);
+        }
 
         if (method === 'find' || method === 'aggregate') {
             return await result.toArray();
