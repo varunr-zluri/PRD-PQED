@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Mail, User, Layers, AtSign } from 'lucide-react';
+import zluriLogo from '../assets/logo.svg';
 
 const Signup = () => {
     const [formData, setFormData] = useState({
@@ -47,14 +48,11 @@ const Signup = () => {
         }}>
             <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <div style={{
-                        width: '48px', height: '48px',
-                        backgroundColor: 'var(--primary)',
-                        borderRadius: '12px',
-                        margin: '0 auto 1rem',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 'bold', fontSize: '1.5rem'
-                    }}>Z</div>
+                    <img
+                        src={zluriLogo}
+                        alt="Zluri"
+                        style={{ height: '48px', width: 'auto', margin: '0 auto 1rem' }}
+                    />
                     <h1 className="text-xl font-bold">Create Account</h1>
                     <p className="text-gray">Join Zluri SRE Portal</p>
                 </div>
