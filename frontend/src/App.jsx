@@ -71,6 +71,7 @@ function App() {
             } />
             <Route path="history" element={<MySubmissions />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
