@@ -54,13 +54,19 @@ const MySubmissions = () => {
         fetchPods();
     }, []);
 
+    const today = new Date().toISOString().split('T')[0];
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters(prev => {
             const updated = { ...prev, [name]: value };
             // Auto-set end_date to today when start_date is set and end_date is empty
             if (name === 'start_date' && value && !prev.end_date) {
-                updated.end_date = new Date().toISOString().split('T')[0];
+                updated.end_date = today;
+            }
+            // Auto-set start_date to earliest date when end_date is set and start_date is empty
+            if (name === 'end_date' && value && !prev.start_date) {
+                updated.start_date = '2020-10-01'; // Reasonable earliest date
             }
             return updated;
         });
@@ -86,7 +92,8 @@ const MySubmissions = () => {
             day: 'numeric',
             year: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: 'Asia/Kolkata'
         });
     };
 
@@ -141,6 +148,7 @@ const MySubmissions = () => {
                         className="input"
                         value={filters.start_date}
                         onChange={handleFilterChange}
+                        max={today}
                     />
                 </div>
 
@@ -152,6 +160,7 @@ const MySubmissions = () => {
                         className="input"
                         value={filters.end_date}
                         onChange={handleFilterChange}
+                        max={today}
                     />
                 </div>
 

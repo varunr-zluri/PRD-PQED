@@ -114,8 +114,7 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             rows = scriptResult.slice(0, MAX_ROWS);
             // Upload full results to Cloudinary
             try {
-                const { v4: uuidv4 } = require('uuid');
-                const filename = `script_${uuidv4()}`;
+                const filename = `script_${require('crypto').randomUUID()}`;
                 const csvContent = arrayToCSV(scriptResult);
                 result_file_path = await uploadString(csvContent, filename);
                 console.log(`[ScriptExecutor] Uploaded ${total_rows} rows to Cloudinary`);

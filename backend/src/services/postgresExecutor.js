@@ -1,5 +1,5 @@
 const { Client } = require('pg');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { uploadString } = require('../utils/cloudStorage');
 
 const MAX_ROWS = 100;
@@ -54,7 +54,7 @@ const executePostgresQuery = async (instance, databaseName, query) => {
 
         // If truncated, upload full result to Cloudinary
         if (isTruncated) {
-            const filename = `pg_${uuidv4()}`;
+            const filename = `pg_${crypto.randomUUID()}`;
             const csvContent = arrayToCSV(allRows);
             const cloudUrl = await uploadString(csvContent, filename);
             response.result_file_path = cloudUrl;
