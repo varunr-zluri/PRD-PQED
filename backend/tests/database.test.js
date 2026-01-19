@@ -74,19 +74,34 @@ describe('Database Controller', () => {
             expect(res.body.databases).toContain('testdb');
         });
 
-        it('should return databases for a MongoDB instance', async () => {
-            const res = await request(app).get('/api/database-instances?instance=test-mongo');
-
-            expect(res.statusCode).toEqual(200);
-            expect(res.body).toHaveProperty('databases');
-            expect(res.body.databases).toContain('admin');
-        });
-
         it('should return 404 for unknown instance', async () => {
             const res = await request(app).get('/api/database-instances?instance=unknown');
 
             expect(res.statusCode).toEqual(404);
             expect(res.body).toHaveProperty('error', 'Database instance not found');
+        });
+
+        it('should return databases for a MongoDB instance', async () => {
+            const res = await request(app).get('/api/database-instances?instance=test-mongo');
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toHaveProperty('databases');
+            // 'logs' should be in the list, 'admin' is filtered out
+            expect(res.body.databases).toContain('logs');
+            expect(res.body.databases).not.toContain('admin');
+        });
+
+        it('should handle connection errors gracefully', async () => {
+            // Override the mock to throw an error
+            require('pg').Client.mockImplementationOnce(() => ({
+                connect: jest.fn().mockRejectedValue(new Error('Connection refused')),
+                end: jest.fn()
+            }));
+
+            const res = await request(app).get('/api/database-instances?instance=test-postgres');
+
+            expect(res.statusCode).toEqual(500);
+            expect(res.body).toHaveProperty('error', 'Failed to fetch resources');
         });
     });
 });

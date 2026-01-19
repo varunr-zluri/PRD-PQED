@@ -5,9 +5,7 @@ const path = require('path');
 // Mock dependencies
 jest.mock('fs', () => ({
     existsSync: jest.fn(),
-    readFileSync: jest.fn(),
-    writeFileSync: jest.fn(),
-    unlinkSync: jest.fn()
+    readFileSync: jest.fn()
 }));
 
 jest.mock('vm2', () => ({
@@ -31,8 +29,8 @@ describe('Script Executor', () => {
         const result = await executeScript(instance, 'testdb', '/path/to/script.js');
 
         expect(result).toHaveProperty('output', 'script output');
-        expect(fs.writeFileSync).toHaveBeenCalled(); // Config file written
-        expect(fs.unlinkSync).toHaveBeenCalled(); // Cleanup
+        expect(fs.existsSync).toHaveBeenCalledWith('/path/to/script.js');
+        expect(fs.readFileSync).toHaveBeenCalled();
     });
 
     it('should execute script for MongoDB instance', async () => {
@@ -40,7 +38,6 @@ describe('Script Executor', () => {
         const result = await executeScript(instance, 'testdb', '/path/to/script.js');
 
         expect(result).toHaveProperty('output', 'script output');
-        expect(fs.writeFileSync).not.toHaveBeenCalled(); // No config file for Mongo
     });
 
     it('should throw error if script file not found', async () => {
@@ -71,4 +68,25 @@ describe('Script Executor', () => {
 
         expect(result).toHaveProperty('output');
     });
+
+    it('should handle MongoDB Atlas connectionString with query params', async () => {
+        const instance = {
+            type: 'MONGODB',
+            connectionString: 'mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true'
+        };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output');
+    });
+
+    it('should handle MongoDB Atlas connectionString without query params', async () => {
+        const instance = {
+            type: 'MONGODB',
+            connectionString: 'mongodb+srv://user:pass@cluster.mongodb.net'
+        };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output');
+    });
 });
+

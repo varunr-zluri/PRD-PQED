@@ -1,24 +1,18 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Database, History, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import '../index.css';
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const isManager = user?.role === 'MANAGER';
 
     const navItems = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard }, // Developer: stats/quick actions. Manager: Approval Dashboard? 
-        // Wait, requirements say: 
-        // Developer View: Query Submission Dashboard (Screen 2)
-        // Manager View: Approval Dashboard (Screen 4)
-        // Maybe we route them differently or show different items.
-        // Let's stick to standard links and role-based protection in pages.
+        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
         { name: 'New Request', path: '/submit', icon: Database, hidden: isManager },
         { name: 'Approval Dashboard', path: '/approvals', icon: ShieldCheck, hidden: !isManager },
         { name: 'My Submissions', path: '/history', icon: History, hidden: isManager },
-        // Only developers submit? Managers approve. Can managers submit? Assume no for now or yes.
-        // Spec says: Developer submits, Manager approves.
     ];
 
     return (
@@ -71,9 +65,14 @@ const Sidebar = () => {
             </nav>
 
             <div style={{ padding: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ marginBottom: '16px' }}>
+                <div
+                    style={{ marginBottom: '16px', cursor: 'pointer' }}
+                    onClick={() => navigate('/profile')}
+                >
                     <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{user?.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{user?.email}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                        {user?.username ? `@${user.username}` : user?.email}
+                    </div>
                 </div>
                 <button
                     onClick={logout}
@@ -94,3 +93,5 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
+
+

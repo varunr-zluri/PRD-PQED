@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
-const { User } = require('../models');
+const { getEM } = require('../config/database');
+const { User } = require('../entities');
 
 const auth = async (req, res, next) => {
     try {
@@ -11,7 +12,8 @@ const auth = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, config.jwt.secret);
-        const user = await User.findByPk(decoded.id);
+        const em = getEM();
+        const user = await em.findOne(User, { id: decoded.id });
 
         if (!user) {
             throw new Error();

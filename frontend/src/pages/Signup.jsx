@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, Mail, User, Layers } from 'lucide-react';
+import { Lock, Mail, User, Layers, AtSign } from 'lucide-react';
 
 const Signup = () => {
     const [formData, setFormData] = useState({
         name: '',
+        username: '',
         email: '',
         password: '',
         pod_name: 'pod-1' // Default
@@ -72,6 +73,23 @@ const Signup = () => {
                                 value={formData.name}
                                 onChange={handleChange}
                                 required
+                            />
+                        </div>
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Username <span className="text-gray" style={{ fontWeight: 'normal' }}>(optional)</span></label>
+                        <div style={{ position: 'relative' }}>
+                            <AtSign size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94a3b8' }} />
+                            <input
+                                type="text"
+                                name="username"
+                                className="input"
+                                style={{ paddingLeft: '40px', width: '100%' }}
+                                placeholder="johndoe"
+                                value={formData.username}
+                                onChange={handleChange}
+                                minLength={3}
                             />
                         </div>
                     </div>

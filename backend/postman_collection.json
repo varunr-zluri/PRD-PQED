@@ -2,8 +2,18 @@
     "info": {
         "_postman_id": "9ea52033-286a-4b9e-bd41-11c5750033ad",
         "name": "Database Query Portal API",
-        "description": "API collection for the Database Query Portal with dynamic parameters.",
+        "description": "API collection for the Database Query Portal with automatic token synchronization.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
     },
     "item": [
         {
@@ -11,12 +21,30 @@
             "item": [
                 {
                     "name": "Signup",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    pm.test('User registered successfully', function() {",
+                                    "        pm.expect(pm.response.json().message).to.include('successfully');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
                     "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
                         "method": "POST",
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"email\": \"test1@zluri.com\",\n    \"password\": \"test123\",\n    \"name\": \"Test User\",\n    \"pod_name\": \"pod-1\"\n}",
+                            "raw": "{\n    \"email\": \"dev@zluri.com\",\n    \"password\": \"password123\",\n    \"name\": \"Test Developer\",\n    \"pod_name\": \"pod-1\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -45,7 +73,13 @@
                                 "exec": [
                                     "var jsonData = pm.response.json();",
                                     "if (jsonData.token) {",
-                                    "    pm.environment.set(\"token\", jsonData.token);",
+                                    "    pm.collectionVariables.set('token', jsonData.token);",
+                                    "    pm.test('Token saved', function() {",
+                                    "        pm.expect(pm.collectionVariables.get('token')).to.not.be.empty;",
+                                    "    });",
+                                    "}",
+                                    "if (jsonData.user && jsonData.user.id) {",
+                                    "    pm.collectionVariables.set('userId', jsonData.user.id.toString());",
                                     "}"
                                 ],
                                 "type": "text/javascript"
@@ -53,11 +87,14 @@
                         }
                     ],
                     "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
                         "method": "POST",
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"email\": \"test1@zluri.com\",\n    \"password\": \"test123\"\n}",
+                            "raw": "{\n    \"email\": \"dev@zluri.com\",\n    \"password\": \"password123\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -81,13 +118,7 @@
                     "name": "Get Me",
                     "request": {
                         "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/auth/me",
                             "host": [
@@ -103,15 +134,22 @@
                 },
                 {
                     "name": "Logout",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.collectionVariables.set('token', '');",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/auth/logout",
                             "host": [
@@ -124,6 +162,155 @@
                         }
                     },
                     "response": []
+                },
+                {
+                    "name": "Login by Username",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.token) {",
+                                    "    pm.collectionVariables.set('token', jsonData.token);",
+                                    "    pm.test('Token saved', function() {",
+                                    "        pm.expect(pm.collectionVariables.get('token')).to.not.be.empty;",
+                                    "    });",
+                                    "}",
+                                    "if (jsonData.user && jsonData.user.id) {",
+                                    "    pm.collectionVariables.set('userId', jsonData.user.id.toString());",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"testuser\",\n    \"password\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Login using username instead of email"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Profile",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"newusername\",\n    \"name\": \"Updated Name\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "profile"
+                            ]
+                        },
+                        "description": "Update username, password, or name"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Database Instances",
+            "item": [
+                {
+                    "name": "Get All Instances",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/database-instances",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "database-instances"
+                            ]
+                        },
+                        "description": "Returns list of available database instances (name and type only, no credentials)"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Databases for Instance",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/database-instances?instance={{dbInstance}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "database-instances"
+                            ],
+                            "query": [
+                                {
+                                    "key": "instance",
+                                    "value": "{{dbInstance}}",
+                                    "description": "Instance name to get databases for"
+                                }
+                            ]
+                        },
+                        "description": "Returns list of database names available in the specified instance"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Pods",
+            "item": [
+                {
+                    "name": "Get Pods",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/pods",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "pods"
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
@@ -131,7 +318,7 @@
             "name": "Requests",
             "item": [
                 {
-                    "name": "Submit Query",
+                    "name": "Submit Query Request",
                     "event": [
                         {
                             "listen": "test",
@@ -139,7 +326,7 @@
                                 "exec": [
                                     "var jsonData = pm.response.json();",
                                     "if (jsonData.id) {",
-                                    "    pm.collectionVariables.set(\"requestId\", jsonData.id);",
+                                    "    pm.collectionVariables.set('requestId', jsonData.id.toString());",
                                     "}"
                                 ],
                                 "type": "text/javascript"
@@ -148,16 +335,10 @@
                     ],
                     "request": {
                         "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"db_type\": \"POSTGRESQL\",\n    \"instance_name\": \"{{dbInstance}}\",\n    \"database_name\": \"{{dbName}}\",\n    \"submission_type\": \"QUERY\",\n    \"query_content\": \"SELECT 1\",\n    \"pod_name\": \"{{podName}}\",\n    \"comments\": \"Test query\"\n}",
+                            "raw": "{\n    \"db_type\": \"POSTGRESQL\",\n    \"instance_name\": \"{{dbInstance}}\",\n    \"database_name\": \"{{dbName}}\",\n    \"submission_type\": \"QUERY\",\n    \"query_content\": \"SELECT * FROM users LIMIT 10;\",\n    \"pod_name\": \"{{podName}}\",\n    \"comments\": \"Test query request\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -177,16 +358,81 @@
                     "response": []
                 },
                 {
-                    "name": "List Requests (All)",
+                    "name": "Submit Script Request",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.id) {",
+                                    "    pm.collectionVariables.set('requestId', jsonData.id.toString());",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "db_type",
+                                    "value": "POSTGRESQL",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "instance_name",
+                                    "value": "{{dbInstance}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "database_name",
+                                    "value": "{{dbName}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "submission_type",
+                                    "value": "SCRIPT",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "pod_name",
+                                    "value": "{{podName}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "comments",
+                                    "value": "Script submission",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "script_file",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Requests (Admin/Manager)",
                     "request": {
                         "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/requests?page=1&limit=10",
                             "host": [
@@ -215,6 +461,16 @@
                                     "disabled": true
                                 },
                                 {
+                                    "key": "db_type",
+                                    "value": "POSTGRESQL",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "submission_type",
+                                    "value": "QUERY",
+                                    "disabled": true
+                                },
+                                {
                                     "key": "start_date",
                                     "value": "2024-01-01",
                                     "disabled": true
@@ -226,32 +482,7 @@
                                 },
                                 {
                                     "key": "search",
-                                    "value": "select",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "db_type",
-                                    "value": "POSTGRESQL",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "submission_type",
-                                    "value": "QUERY",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "database_name",
-                                    "value": "{{dbName}}",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "requester_id",
-                                    "value": "1",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "approver_id",
-                                    "value": "1",
+                                    "value": "",
                                     "disabled": true
                                 }
                             ]
@@ -260,63 +491,10 @@
                     "response": []
                 },
                 {
-                    "name": "Get Pending Requests (Manager)",
+                    "name": "My Submissions",
                     "request": {
                         "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/requests?status=PENDING&page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "requests"
-                            ],
-                            "query": [
-                                {
-                                    "key": "status",
-                                    "value": "PENDING"
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                },
-                                {
-                                    "key": "pod_name",
-                                    "value": "{{podName}}",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "requester_id",
-                                    "value": "1",
-                                    "disabled": true
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get My Submissions",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/requests/my-submissions?page=1&limit=10",
                             "host": [
@@ -344,16 +522,6 @@
                                     "key": "search",
                                     "value": "",
                                     "disabled": true
-                                },
-                                {
-                                    "key": "start_date",
-                                    "value": "",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "end_date",
-                                    "value": "",
-                                    "disabled": true
                                 }
                             ]
                         }
@@ -364,13 +532,7 @@
                     "name": "Get Request By ID",
                     "request": {
                         "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/requests/{{requestId}}",
                             "host": [
@@ -385,19 +547,13 @@
                     "response": []
                 },
                 {
-                    "name": "Update Request (Manager)",
+                    "name": "Approve Request",
                     "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "method": "PATCH",
+                        "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"status\": \"APPROVED\",\n    \"rejection_reason\": \"\"\n}",
+                            "raw": "{\n    \"status\": \"APPROVED\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -416,89 +572,76 @@
                         }
                     },
                     "response": []
-                }
-            ]
-        },
-        {
-            "name": "Database Instances",
-            "item": [
+                },
                 {
-                    "name": "List Instances",
+                    "name": "Reject Request",
                     "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"REJECTED\",\n    \"rejection_reason\": \"Query needs optimization\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
                             }
-                        ],
+                        },
                         "url": {
-                            "raw": "{{baseUrl}}/database-instances",
+                            "raw": "{{baseUrl}}/requests/{{requestId}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "database-instances"
+                                "requests",
+                                "{{requestId}}"
                             ]
                         }
                     },
                     "response": []
                 },
                 {
-                    "name": "List Databases (by Params)",
+                    "name": "Get Request with Execution Details",
                     "request": {
                         "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/database-instances?instance={{dbInstance}}",
+                            "raw": "{{baseUrl}}/requests/{{requestId}}?include=execution",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "database-instances"
+                                "requests",
+                                "{{requestId}}"
                             ],
                             "query": [
                                 {
-                                    "key": "instance",
-                                    "value": "{{dbInstance}}"
+                                    "key": "include",
+                                    "value": "execution"
                                 }
                             ]
-                        }
+                        },
+                        "description": "Returns request with execution details including csv_available, csv_expired, expires_at"
                     },
                     "response": []
-                }
-            ]
-        },
-        {
-            "name": "Pods",
-            "item": [
+                },
                 {
-                    "name": "List Pods",
+                    "name": "Download Full CSV",
                     "request": {
                         "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}",
-                                "type": "text"
-                            }
-                        ],
+                        "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/pods",
+                            "raw": "{{baseUrl}}/requests/{{requestId}}/csv",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "pods"
+                                "requests",
+                                "{{requestId}}",
+                                "csv"
                             ]
-                        }
+                        },
+                        "description": "Downloads full result as CSV (only available if result was truncated)"
                     },
                     "response": []
                 }
@@ -509,6 +652,16 @@
         {
             "key": "baseUrl",
             "value": "http://localhost:3000/api",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "userId",
+            "value": "",
             "type": "string"
         },
         {
@@ -528,7 +681,7 @@
         },
         {
             "key": "dbName",
-            "value": "ecommerce_db",
+            "value": "postgres",
             "type": "string"
         }
     ]

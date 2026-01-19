@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getRequests, approveRequest, rejectRequest, getPods } from '../api/client';
+import { getRequests, getPods } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
-import Modal from '../components/Modal';
-import { Search, Check, X, FileText, Eye, Inbox } from 'lucide-react';
+import RequestDetailModal from '../components/RequestDetailModal';
+import { Search, FileText, Eye, Inbox } from 'lucide-react';
 
 const ApprovalDashboard = () => {
     const [requests, setRequests] = useState([]);
@@ -22,10 +22,7 @@ const ApprovalDashboard = () => {
     });
 
     // Modal state
-    const [selectedRequest, setSelectedRequest] = useState(null);
-    const [modalType, setModalType] = useState(null); // 'approve', 'reject', 'view'
-    const [rejectionReason, setRejectionReason] = useState('');
-    const [actionLoading, setActionLoading] = useState(false);
+    const [selectedRequestId, setSelectedRequestId] = useState(null);
 
     const fetchRequests = useCallback(async (page = 1) => {
         setLoading(true);
@@ -57,49 +54,18 @@ const ApprovalDashboard = () => {
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+        setFilters(prev => {
+            const updated = { ...prev, [name]: value };
+            // Auto-set end_date to today when start_date is set and end_date is empty
+            if (name === 'start_date' && value && !prev.end_date) {
+                updated.end_date = new Date().toISOString().split('T')[0];
+            }
+            return updated;
+        });
     };
 
-    const handleApprove = async () => {
-        if (!selectedRequest) return;
-        setActionLoading(true);
-        try {
-            await approveRequest(selectedRequest.id);
-            toast.success('Request approved and executed');
-            setModalType(null);
-            setSelectedRequest(null);
-            fetchRequests(pagination.page);
-        } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to approve request');
-        }
-        setActionLoading(false);
-    };
-
-    const handleReject = async () => {
-        if (!selectedRequest) return;
-        setActionLoading(true);
-        try {
-            await rejectRequest(selectedRequest.id, rejectionReason);
-            toast.success('Request rejected');
-            setModalType(null);
-            setSelectedRequest(null);
-            setRejectionReason('');
-            fetchRequests(pagination.page);
-        } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to reject request');
-        }
-        setActionLoading(false);
-    };
-
-    const openModal = (request, type) => {
-        setSelectedRequest(request);
-        setModalType(type);
-    };
-
-    const closeModal = () => {
-        setModalType(null);
-        setSelectedRequest(null);
-        setRejectionReason('');
+    const handleActionComplete = () => {
+        fetchRequests(pagination.page);
     };
 
     const formatDate = (dateString) => {
@@ -150,7 +116,7 @@ const ApprovalDashboard = () => {
                     >
                         <option value="">All PODs</option>
                         {pods.map(pod => (
-                            <option key={pod.id} value={pod.name}>{pod.name}</option>
+                            <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
                         ))}
                     </select>
                 </div>
@@ -232,7 +198,7 @@ const ApprovalDashboard = () => {
                                         <td>{req.db_type}</td>
                                         <td>
                                             {req.submission_type === 'QUERY' ? (
-                                                <div className="query-preview">
+                                                <div className="query-preview" onClick={() => setSelectedRequestId(req.id)}>
                                                     {req.query_content?.substring(0, 50) || '—'}
                                                 </div>
                                             ) : (
@@ -250,28 +216,10 @@ const ApprovalDashboard = () => {
                                                 <button
                                                     className="btn btn-icon btn-secondary"
                                                     title="View Details"
-                                                    onClick={() => openModal(req, 'view')}
+                                                    onClick={() => setSelectedRequestId(req.id)}
                                                 >
                                                     <Eye size={16} />
                                                 </button>
-                                                {req.status === 'PENDING' && (
-                                                    <>
-                                                        <button
-                                                            className="btn btn-icon btn-success"
-                                                            title="Approve"
-                                                            onClick={() => openModal(req, 'approve')}
-                                                        >
-                                                            <Check size={16} />
-                                                        </button>
-                                                        <button
-                                                            className="btn btn-icon btn-danger"
-                                                            title="Reject"
-                                                            onClick={() => openModal(req, 'reject')}
-                                                        >
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -288,110 +236,14 @@ const ApprovalDashboard = () => {
                 onPageChange={(page) => fetchRequests(page)}
             />
 
-            {/* View Modal */}
-            <Modal
-                isOpen={modalType === 'view' && !!selectedRequest}
-                onClose={closeModal}
-                title={`Request #${selectedRequest?.id}`}
-            >
-                {selectedRequest && (
-                    <div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Database:</strong> {selectedRequest.instance_name} / {selectedRequest.database_name}
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Type:</strong> {selectedRequest.db_type} ({selectedRequest.submission_type})
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Requester:</strong> {selectedRequest.requester?.email}
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>POD:</strong> {selectedRequest.pod_name}
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Status:</strong> <StatusBadge status={selectedRequest.status} />
-                        </div>
-                        <div style={{ marginBottom: '16px' }}>
-                            <strong>Comments:</strong>
-                            <p style={{ margin: '8px 0', color: 'var(--text-secondary)' }}>{selectedRequest.comments}</p>
-                        </div>
-                        {selectedRequest.query_content && (
-                            <div>
-                                <strong>Query:</strong>
-                                <pre style={{
-                                    background: 'var(--bg-light)',
-                                    padding: '12px',
-                                    borderRadius: '6px',
-                                    overflow: 'auto',
-                                    fontSize: '0.875rem',
-                                    marginTop: '8px'
-                                }}>
-                                    {selectedRequest.query_content}
-                                </pre>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Modal>
-
-            {/* Approve Modal */}
-            <Modal
-                isOpen={modalType === 'approve' && !!selectedRequest}
-                onClose={closeModal}
-                title="Confirm Approval"
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={closeModal}>
-                            Cancel
-                        </button>
-                        <button
-                            className="btn btn-success"
-                            onClick={handleApprove}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? 'Processing...' : 'Approve & Execute'}
-                        </button>
-                    </>
-                }
-            >
-                <p>Are you sure you want to approve and execute this request?</p>
-                {selectedRequest && (
-                    <div style={{ marginTop: '16px', padding: '12px', background: 'var(--bg-light)', borderRadius: '6px' }}>
-                        <strong>Request #{selectedRequest.id}</strong>
-                        <p className="text-sm text-gray">{selectedRequest.comments}</p>
-                    </div>
-                )}
-            </Modal>
-
-            {/* Reject Modal */}
-            <Modal
-                isOpen={modalType === 'reject' && !!selectedRequest}
-                onClose={closeModal}
-                title="Reject Request"
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={closeModal}>
-                            Cancel
-                        </button>
-                        <button
-                            className="btn btn-danger"
-                            onClick={handleReject}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? 'Processing...' : 'Reject Request'}
-                        </button>
-                    </>
-                }
-            >
-                <p>Please provide a reason for rejection (optional):</p>
-                <textarea
-                    className="textarea"
-                    placeholder="Rejection reason..."
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    style={{ width: '100%', marginTop: '12px' }}
-                />
-            </Modal>
+            {/* Request Detail Modal with Actions */}
+            <RequestDetailModal
+                requestId={selectedRequestId}
+                isOpen={!!selectedRequestId}
+                onClose={() => setSelectedRequestId(null)}
+                onActionComplete={handleActionComplete}
+                showActions={true}
+            />
         </div>
     );
 };

@@ -1,27 +1,17 @@
 const request = require('supertest');
-const { QueryRequest, User, QueryExecution } = require('../src/models');
 const app = require('../src/app');
 const executionService = require('../src/services/executionService');
 
-jest.mock('../src/models', () => ({
-    QueryRequest: {
-        findByPk: jest.fn(),
-    },
-    User: {
-        findOne: jest.fn(),
-    },
-    QueryExecution: {
-        create: jest.fn()
-    },
-    sequelize: {
-        authenticate: jest.fn(),
-        sync: jest.fn(),
-    }
+// Mock the database module to provide mock EntityManager
+jest.mock('../src/config/database', () => ({
+    getEM: jest.fn(),
+    initORM: jest.fn(),
+    closeORM: jest.fn(),
+    getORM: jest.fn(() => ({ em: {} })),
+    ormMiddleware: (req, res, next) => next()
 }));
 
-jest.mock('../src/services/executionService', () => ({
-    executeRequest: jest.fn()
-}));
+const { getEM } = require('../src/config/database');
 
 // Mock auth middleware to simulate Manager
 jest.mock('../src/middleware/auth', () => jest.fn((req, res, next) => {
@@ -38,85 +28,217 @@ jest.mock('../src/validators', () => ({
     validateBody: () => (req, res, next) => next(),
     validateQuery: () => (req, res, next) => next(),
     submitRequestSchema: {},
-    updateRequestSchema: {}
+    updateRequestSchema: {},
+    requestFiltersSchema: {}
 }));
 
-// Mock uuid just in case, though config handles it
-jest.mock('uuid', () => ({
-    v4: () => 'test-uuid-1234'
+jest.mock('../src/services/executionService', () => ({
+    executeRequest: jest.fn()
+}));
+
+// Mock slackService to prevent real Slack API calls
+jest.mock('../src/services/slackService', () => ({
+    notifyNewSubmission: jest.fn().mockResolvedValue(undefined),
+    notifyApprovalResult: jest.fn().mockResolvedValue(undefined),
+    notifyRejection: jest.fn().mockResolvedValue(undefined),
+    getUserByEmail: jest.fn().mockResolvedValue(null),
+    sendDM: jest.fn().mockResolvedValue(true)
 }));
 
 describe('Approval Endpoints', () => {
+    let mockEM;
+
     beforeEach(() => {
         jest.clearAllMocks();
+
+        // Setup mock EntityManager
+        mockEM = {
+            findOne: jest.fn(),
+            create: jest.fn(),
+            persistAndFlush: jest.fn(),
+            flush: jest.fn()
+        };
+        getEM.mockReturnValue(mockEM);
     });
 
-    describe('PUT /api/requests/:id', () => {
+    describe('PATCH /api/requests/:id - Approve', () => {
         it('should approve a pending request and trigger execution', async () => {
             const mockRequest = {
                 id: 1,
                 status: 'PENDING',
                 pod_name: 'POD_1',
-                requester_id: 1,
-                save: jest.fn().mockResolvedValue(true)
+                requester: { id: 1 },
+                db_type: 'POSTGRESQL',
+                instance_name: 'test-db',
+                query_content: 'SELECT 1',
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, status: this.status }; }
             };
 
-            QueryRequest.findByPk.mockResolvedValue(mockRequest);
-            executionService.executeRequest.mockResolvedValue({ success: true, result: [] });
+            const mockExecution = { id: 1, status: 'SUCCESS' };
+
+            mockEM.findOne.mockResolvedValue(mockRequest);
+            mockEM.create.mockReturnValue(mockExecution);
+            mockEM.persistAndFlush.mockResolvedValue(undefined);
+            mockEM.flush.mockResolvedValue(undefined);
+            executionService.executeRequest.mockResolvedValue({ success: true, result: [{ count: 1 }] });
 
             const res = await request(app)
                 .patch('/api/requests/1')
                 .send({ status: 'APPROVED' });
 
             expect(res.statusCode).toEqual(200);
-            expect(mockRequest.save).toHaveBeenCalled();
-            expect(mockRequest.status).toBe('EXECUTED'); // Assuming executeRequest success sets it to EXECUTED
+            expect(mockRequest.status).toBe('EXECUTED');
             expect(executionService.executeRequest).toHaveBeenCalledWith(mockRequest);
+            expect(mockEM.create).toHaveBeenCalled();
         });
 
-        it('should reject a pending request', async () => {
+        it('should handle execution failure and set status to FAILED', async () => {
             const mockRequest = {
                 id: 1,
                 status: 'PENDING',
                 pod_name: 'POD_1',
-                requester_id: 1,
-                save: jest.fn().mockResolvedValue(true)
+                requester: { id: 1 },
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, status: this.status }; }
             };
 
-            QueryRequest.findByPk.mockResolvedValue(mockRequest);
+            const mockExecution = { id: 1, status: 'FAILURE' };
+
+            mockEM.findOne.mockResolvedValue(mockRequest);
+            mockEM.create.mockReturnValue(mockExecution);
+            mockEM.persistAndFlush.mockResolvedValue(undefined);
+            mockEM.flush.mockResolvedValue(undefined);
+            executionService.executeRequest.mockResolvedValue({ success: false, error: 'Query failed' });
+
+            const res = await request(app)
+                .patch('/api/requests/1')
+                .send({ status: 'APPROVED' });
+
+            expect(res.statusCode).toEqual(200);
+            expect(mockRequest.status).toBe('FAILED');
+        });
+
+        it('should return 400 if request is already approved', async () => {
+            const mockRequest = {
+                id: 1,
+                status: 'APPROVED', // Already approved
+                pod_name: 'POD_1'
+            };
+
+            mockEM.findOne.mockResolvedValue(mockRequest);
+
+            const res = await request(app)
+                .patch('/api/requests/1')
+                .send({ status: 'APPROVED' });
+
+            expect(res.statusCode).toEqual(400);
+            expect(res.body.error).toBe('Request is already approved');
+        });
+
+        it('should return 404 if request not found', async () => {
+            mockEM.findOne.mockResolvedValue(null);
+
+            const res = await request(app)
+                .patch('/api/requests/999')
+                .send({ status: 'APPROVED' });
+
+            expect(res.statusCode).toEqual(404);
+            expect(res.body.error).toBe('Request not found');
+        });
+    });
+
+    describe('PATCH /api/requests/:id - Reject', () => {
+        it('should reject a pending request with reason', async () => {
+            const mockRequest = {
+                id: 1,
+                status: 'PENDING',
+                pod_name: 'POD_1',
+                requester: { id: 1 },
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, status: this.status }; }
+            };
+
+            mockEM.findOne.mockResolvedValue(mockRequest);
+            mockEM.flush.mockResolvedValue(undefined);
 
             const res = await request(app)
                 .patch('/api/requests/1')
                 .send({ status: 'REJECTED', rejection_reason: 'Bad query' });
 
             expect(res.statusCode).toEqual(200);
-            expect(mockRequest.save).toHaveBeenCalled();
             expect(mockRequest.status).toBe('REJECTED');
             expect(mockRequest.rejected_reason).toBe('Bad query');
         });
 
-        it('should require MANAGER role', async () => {
-            // To test role requirement, we'd need to change the auth mock or check RBAC middleware mocking.
-            // Since auth is mocked globally here as MANAGER, let's test ownership logic (POD check)
+        it('should return 400 if request is not in PENDING status', async () => {
+            const mockRequest = {
+                id: 1,
+                status: 'EXECUTED', // Already executed
+                pod_name: 'POD_1'
+            };
 
-            // ... actually the auth mock is global for the file. 
-            // Ideally we should use jest.spyOn or re-mock for different users, but RBAC is usually middleware.
-            // We can test: "Manager cannot approve request for different POD"
+            mockEM.findOne.mockResolvedValue(mockRequest);
 
+            const res = await request(app)
+                .patch('/api/requests/1')
+                .send({ status: 'REJECTED', rejection_reason: 'Too late' });
+
+            expect(res.statusCode).toEqual(400);
+            expect(res.body.error).toBe('Request is not in PENDING status');
+        });
+    });
+
+    describe('PATCH /api/requests/:id - Access Control', () => {
+        it('should deny manager access to different POD request', async () => {
             const mockRequest = {
                 id: 2,
                 status: 'PENDING',
-                pod_name: 'pod-2', // Different POD
-                requester_id: 3
+                pod_name: 'POD_2', // Different from manager's POD_1
+                requester: { id: 3 }
             };
 
-            QueryRequest.findByPk.mockResolvedValue(mockRequest);
+            mockEM.findOne.mockResolvedValue(mockRequest);
 
             const res = await request(app)
                 .patch('/api/requests/2')
                 .send({ status: 'APPROVED' });
 
             expect(res.statusCode).toEqual(403);
+            expect(res.body.error).toBe('You can only update requests for your POD');
+        });
+    });
+
+    describe('Edge Cases', () => {
+        it('should handle database error gracefully', async () => {
+            mockEM.findOne.mockRejectedValue(new Error('Database connection failed'));
+
+            const res = await request(app)
+                .patch('/api/requests/1')
+                .send({ status: 'APPROVED' });
+
+            expect(res.statusCode).toEqual(500);
+            expect(res.body.error).toBe('Database connection failed');
+        });
+
+        it('should handle execution service error', async () => {
+            const mockRequest = {
+                id: 1,
+                status: 'PENDING',
+                pod_name: 'POD_1'
+            };
+
+            mockEM.findOne.mockResolvedValue(mockRequest);
+            mockEM.flush.mockResolvedValue(undefined);
+            mockEM.create.mockReturnValue({});
+            mockEM.persistAndFlush.mockResolvedValue(undefined);
+            executionService.executeRequest.mockRejectedValue(new Error('Execution failed'));
+
+            const res = await request(app)
+                .patch('/api/requests/1')
+                .send({ status: 'APPROVED' });
+
+            expect(res.statusCode).toEqual(500);
         });
     });
 });

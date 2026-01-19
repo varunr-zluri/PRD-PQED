@@ -1,13 +1,44 @@
-const { QueryRequest, User, QueryExecution } = require('../models');
-const { Op } = require('sequelize');
+const { QueryRequest, User, QueryExecution } = require('../entities');
+const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
+const slackService = require('../services/slackService');
+const fs = require('fs');
+const path = require('path');
+
+// Define allowed upload directory for scripts (prevents path traversal)
+const SCRIPTS_UPLOAD_DIR = path.resolve(__dirname, '../../uploads/scripts');
+
+// Helper function to read script content safely with path traversal protection
+const readScriptContent = (scriptPath) => {
+    try {
+        if (!scriptPath) return null;
+
+        // Resolve to absolute path
+        const resolvedPath = path.resolve(scriptPath);
+
+        // Security check: Ensure path is within allowed upload directory
+        if (!resolvedPath.startsWith(SCRIPTS_UPLOAD_DIR)) {
+            console.error('Security: Attempted path traversal blocked:', scriptPath);
+            return null;
+        }
+
+        if (fs.existsSync(resolvedPath)) {
+            return fs.readFileSync(resolvedPath, 'utf-8');
+        }
+        return null;
+    } catch (error) {
+        console.error('Error reading script file:', error);
+        return null;
+    }
+};
 
 const submitRequest = async (req, res) => {
     try {
         const { db_type, instance_name, database_name, submission_type, query_content, comments, pod_name } = req.body;
+        const em = getEM();
 
         const requestData = {
-            requester_id: req.user.id,
+            requester: req.user,
             db_type,
             instance_name,
             database_name,
@@ -26,8 +57,19 @@ const submitRequest = async (req, res) => {
             requestData.script_path = req.file.path;
         }
 
-        const request = await QueryRequest.create(requestData);
-        res.status(201).json(request);
+        const request = em.create(QueryRequest, requestData);
+        await em.persistAndFlush(request);
+
+        // Find manager for the POD to send DM
+        const manager = await em.findOne(User, { role: 'MANAGER', pod_name });
+        const managerEmail = manager?.email || null;
+
+        // Send Slack notification for new submission (channel + manager DM)
+        slackService.notifyNewSubmission(request, req.user, managerEmail).catch(err =>
+            console.error('[Slack] Notification failed:', err.message)
+        );
+
+        res.status(201).json(request.toJSON());
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
@@ -42,17 +84,20 @@ const buildWhereClause = (query) => {
     if (db_type) whereClause.db_type = db_type;
     if (submission_type) whereClause.submission_type = submission_type;
     if (database_name) whereClause.database_name = database_name;
-    if (requester_id) whereClause.requester_id = requester_id;
-    if (approver_id) whereClause.approver_id = approver_id;
+    if (requester_id) whereClause.requester = requester_id;
+    if (approver_id) whereClause.approver = approver_id;
 
     if (start_date && end_date) {
-        whereClause.created_at = { [Op.between]: [new Date(start_date), new Date(end_date)] };
+        whereClause.created_at = {
+            $gte: new Date(start_date),
+            $lte: new Date(end_date)
+        };
     }
 
     if (search) {
-        whereClause[Op.or] = [
-            { query_content: { [Op.iLike]: `%${search}%` } },
-            { comments: { [Op.iLike]: `%${search}%` } }
+        whereClause.$or = [
+            { query_content: { $like: `%${search}%` } },
+            { comments: { $like: `%${search}%` } }
         ];
     }
 
@@ -64,23 +109,22 @@ const getRequests = async (req, res) => {
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         const whereClause = buildWhereClause(req.query);
+        const em = getEM();
 
         if (req.user.role === 'MANAGER' && req.user.pod_name) {
             whereClause.pod_name = req.user.pod_name;
         }
 
-        const { count, rows } = await QueryRequest.findAndCountAll({
-            where: whereClause,
-            include: [
-                { model: User, as: 'requester', attributes: ['id', 'name', 'email'] },
-                { model: User, as: 'approver', attributes: ['id', 'name', 'email'] }
-            ],
-            order: [['created_at', 'DESC']],
+        const [rows, count] = await em.findAndCount(QueryRequest, whereClause, {
+            populate: ['requester', 'approver'],
+            orderBy: { created_at: 'DESC' },
             limit: parseInt(limit),
             offset: parseInt(offset)
         });
+        // Use toJSON for clean response
+        const requests = rows.map(r => r.toJSON());
 
-        res.json({ requests: rows, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
+        res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -91,55 +135,109 @@ const getMySubmissions = async (req, res) => {
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         const whereClause = buildWhereClause(req.query);
-        whereClause.requester_id = req.user.id;
+        whereClause.requester = req.user.id;
+        const em = getEM();
 
-        const { count, rows } = await QueryRequest.findAndCountAll({
-            where: whereClause,
-            order: [['created_at', 'DESC']],
+        const [rows, count] = await em.findAndCount(QueryRequest, whereClause, {
+            orderBy: { created_at: 'DESC' },
             limit: parseInt(limit),
             offset: parseInt(offset)
         });
 
-        res.json({ requests: rows, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
+        // Use toJSON for clean response
+        const requests = rows.map(r => r.toJSON());
+
+        res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
+const RETENTION_DAYS = 30;
+
+const getExpiryDate = (createdAt) => {
+    const expiry = new Date(createdAt);
+    expiry.setDate(expiry.getDate() + RETENTION_DAYS);
+    return expiry;
+};
+
 const getRequestById = async (req, res) => {
     try {
-        const request = await QueryRequest.findByPk(req.params.id, {
-            include: [
-                { model: User, as: 'requester', attributes: ['id', 'name', 'email'] },
-                { model: User, as: 'approver', attributes: ['id', 'name', 'email'] },
-                { model: QueryExecution, as: 'executions' }
-            ]
+        const em = getEM();
+        const includeExecution = req.query.include === 'execution';
+        const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) }, {
+            populate: ['requester', 'approver', 'executions']
         });
 
         if (!request) {
             return res.status(404).json({ error: 'Request not found' });
         }
 
+        // Build result object using toJSON and add script content if applicable
+        const buildResult = (r) => {
+            const result = r.toJSON();
+            // Include script content for SCRIPT type submissions
+            if (r.submission_type === 'SCRIPT' && r.script_path) {
+                result.script_content = readScriptContent(r.script_path);
+                result.script_filename = path.basename(r.script_path);
+            }
+            // Include executions if populated
+            if (r.executions && r.executions.isInitialized()) {
+                result.executions = r.executions.getItems().map(e => {
+                    const execData = {
+                        id: e.id,
+                        status: e.status,
+                        result_data: e.result_data,
+                        error_message: e.error_message,
+                        executed_at: e.executed_at,
+                        is_truncated: e.is_truncated,
+                        total_rows: e.total_rows
+                    };
+
+                    // Add CSV availability info when include=execution
+                    if (includeExecution && e.is_truncated) {
+                        const expiresAt = getExpiryDate(e.created_at);
+                        let csvAvailable = false;
+                        let csvExpired = false;
+
+                        if (e.result_file_path) {
+                            if (new Date() > expiresAt) {
+                                csvExpired = true;
+                            } else if (fs.existsSync(e.result_file_path)) {
+                                csvAvailable = true;
+                            }
+                        }
+
+                        execData.csv_available = csvAvailable;
+                        execData.csv_expired = csvExpired;
+                        execData.expires_at = expiresAt;
+                    }
+
+                    return execData;
+                });
+            }
+            return result;
+        };
+
         // Access control based on role
         if (req.user.role === 'ADMIN') {
-            // ADMIN can see all requests
-            return res.json(request);
+            return res.json(buildResult(request));
         }
 
         if (req.user.role === 'MANAGER') {
-            // MANAGER can only see requests from their POD
             if (request.pod_name !== req.user.pod_name) {
                 return res.status(403).json({ error: 'Access denied. Request belongs to a different POD.' });
             }
-            return res.json(request);
+            return res.json(buildResult(request));
         }
 
         // DEVELOPER can only see their own requests
-        if (request.requester_id !== req.user.id) {
+        const requesterId = request.requester?.id || request.requester;
+        if (requesterId !== req.user.id) {
             return res.status(403).json({ error: 'Access denied. You can only view your own requests.' });
         }
 
-        res.json(request);
+        res.json(buildResult(request));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -148,7 +246,11 @@ const getRequestById = async (req, res) => {
 const updateRequest = async (req, res) => {
     try {
         const { status, rejection_reason } = req.body;
-        const request = await QueryRequest.findByPk(req.params.id);
+        const em = getEM();
+        // Populate requester to get email for Slack DM
+        const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) }, {
+            populate: ['requester']
+        });
 
         if (!request) {
             return res.status(404).json({ error: 'Request not found' });
@@ -164,24 +266,37 @@ const updateRequest = async (req, res) => {
             }
 
             request.status = 'APPROVED';
-            request.approver_id = req.user.id;
+            request.approver = req.user;
             request.approved_at = new Date();
-            await request.save();
+            await em.flush();
 
             const executionResult = await executionService.executeRequest(request);
             let executionStatus = executionResult.success ? 'SUCCESS' : 'FAILURE';
             request.status = executionResult.success ? 'EXECUTED' : 'FAILED';
 
-            await QueryExecution.create({
-                query_request_id: request.id,
+            // Extract truncation metadata from result
+            const resultData = executionResult.success ? executionResult.result : null;
+            const execution = em.create(QueryExecution, {
+                request: request,
                 status: executionStatus,
-                result_data: executionResult.success ? JSON.stringify(executionResult.result) : null,
+                result_data: resultData ? JSON.stringify(resultData.rows) : null,
                 error_message: executionResult.success ? null : executionResult.error,
-                executed_at: new Date()
+                executed_at: new Date(),
+                // Truncation metadata
+                is_truncated: resultData?.is_truncated || false,
+                total_rows: resultData?.total_rows || null,
+                result_file_path: resultData?.result_file_path || null
             });
 
-            await request.save();
-            return res.json(request);
+            await em.persistAndFlush(execution);
+
+            // Send Slack notification for approval result (channel + DM to requester)
+            const requesterEmail = request.requester?.email;
+            slackService.notifyApprovalResult(request, req.user, executionResult, requesterEmail).catch(err =>
+                console.error('[Slack] Notification failed:', err.message)
+            );
+
+            return res.json(request.toJSON());
 
         } else if (status === 'REJECTED') {
             if (request.status !== 'PENDING') {
@@ -189,10 +304,20 @@ const updateRequest = async (req, res) => {
             }
 
             request.status = 'REJECTED';
-            request.approver_id = req.user.id;
+            request.approver = req.user;
             request.rejected_reason = rejection_reason;
-            await request.save();
-            return res.json(request);
+            await em.flush();
+
+            // Send Slack notification for rejection
+            // Get requester email for DM
+            const requester = await em.findOne(User, { id: request.requester?.id || request.requester });
+            if (requester) {
+                slackService.notifyRejection(request, req.user, requester.email, rejection_reason).catch(err =>
+                    console.error('[Slack] Notification failed:', err.message)
+                );
+            }
+
+            return res.json(request.toJSON());
 
         }
     } catch (error) {
