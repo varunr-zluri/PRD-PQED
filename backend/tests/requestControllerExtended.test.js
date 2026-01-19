@@ -100,83 +100,8 @@ describe('Request Controller Extended Tests', () => {
         });
     });
 
-    describe('GET /api/requests/:id - SCRIPT type with content', () => {
-        it('should include script_content for SCRIPT type requests', async () => {
-            // Create a temporary test script file
-            const testScriptDir = path.resolve(__dirname, '../uploads/scripts');
-            const testScriptPath = path.join(testScriptDir, 'admin-test-script.js');
-
-            // Ensure directory exists
-            if (!fs.existsSync(testScriptDir)) {
-                fs.mkdirSync(testScriptDir, { recursive: true });
-            }
-
-            // Create test script file
-            const scriptContent = 'console.log("test script");';
-            fs.writeFileSync(testScriptPath, scriptContent);
-
-            try {
-                const mockRequest = createMockRequest({
-                    id: 1,
-                    status: 'PENDING',
-                    pod_name: 'POD_1',
-                    submission_type: 'SCRIPT',
-                    script_path: testScriptPath,
-                    requester: { id: 1, name: 'Tester', email: 'test@test.com' }
-                });
-
-                mockEM.findOne.mockResolvedValue(mockRequest);
-
-                const res = await request(app).get('/api/requests/1');
-
-                expect(res.statusCode).toEqual(200);
-                expect(res.body).toHaveProperty('script_content', scriptContent);
-                expect(res.body).toHaveProperty('script_filename', 'admin-test-script.js');
-            } finally {
-                // Cleanup
-                if (fs.existsSync(testScriptPath)) {
-                    fs.unlinkSync(testScriptPath);
-                }
-            }
-        });
-
-        it('should return null for script_content if file does not exist', async () => {
-            const mockRequest = createMockRequest({
-                id: 1,
-                status: 'PENDING',
-                pod_name: 'POD_1',
-                submission_type: 'SCRIPT',
-                script_path: '/nonexistent/path/script.js',
-                requester: { id: 1, name: 'Tester', email: 'test@test.com' }
-            });
-
-            mockEM.findOne.mockResolvedValue(mockRequest);
-
-            const res = await request(app).get('/api/requests/1');
-
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.script_content).toBeNull();
-        });
-
-        it('should block path traversal attempts', async () => {
-            const mockRequest = createMockRequest({
-                id: 1,
-                status: 'PENDING',
-                pod_name: 'POD_1',
-                submission_type: 'SCRIPT',
-                script_path: '../../../etc/passwd',  // Path traversal attempt
-                requester: { id: 1, name: 'Tester', email: 'test@test.com' }
-            });
-
-            mockEM.findOne.mockResolvedValue(mockRequest);
-
-            const res = await request(app).get('/api/requests/1');
-
-            expect(res.statusCode).toEqual(200);
-            // Path traversal should be blocked, returning null
-            expect(res.body.script_content).toBeNull();
-        });
-    });
+    // Script content reading tests removed as we no longer return script content in API
+    // Scripts are now stored in Cloudinary and fetched only during execution
 
     describe('GET /api/requests - ADMIN list access', () => {
         it('should return all requests for ADMIN without POD filter', async () => {

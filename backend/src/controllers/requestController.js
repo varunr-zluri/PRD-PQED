@@ -2,35 +2,9 @@ const { QueryRequest, User, QueryExecution } = require('../entities');
 const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
 const slackService = require('../services/slackService');
-const fs = require('fs');
+const fs = require('fs'); // Keep for CSV check for now, though ephemeral
 const path = require('path');
 
-// Define allowed upload directory for scripts (prevents path traversal)
-const SCRIPTS_UPLOAD_DIR = path.resolve(__dirname, '../../uploads/scripts');
-
-// Helper function to read script content safely with path traversal protection
-const readScriptContent = (scriptPath) => {
-    try {
-        if (!scriptPath) return null;
-
-        // Resolve to absolute path
-        const resolvedPath = path.resolve(scriptPath);
-
-        // Security check: Ensure path is within allowed upload directory
-        if (!resolvedPath.startsWith(SCRIPTS_UPLOAD_DIR)) {
-            console.error('Security: Attempted path traversal blocked:', scriptPath);
-            return null;
-        }
-
-        if (fs.existsSync(resolvedPath)) {
-            return fs.readFileSync(resolvedPath, 'utf-8');
-        }
-        return null;
-    } catch (error) {
-        console.error('Error reading script file:', error);
-        return null;
-    }
-};
 
 const submitRequest = async (req, res) => {
     try {
@@ -176,10 +150,11 @@ const getRequestById = async (req, res) => {
         // Build result object using toJSON and add script content if applicable
         const buildResult = (r) => {
             const result = r.toJSON();
-            // Include script content for SCRIPT type submissions
+            // Include script filename for SCRIPT type submissions
             if (r.submission_type === 'SCRIPT' && r.script_path) {
-                result.script_content = readScriptContent(r.script_path);
-                result.script_filename = path.basename(r.script_path);
+                // script_path is now a Cloudinary URL
+                result.script_filename = 'script.js'; // Default or extract from URL if needed
+                // We no longer embed script_content as it is a remote file
             }
             // Include executions if populated
             if (r.executions && r.executions.isInitialized()) {
