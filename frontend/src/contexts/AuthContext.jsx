@@ -28,9 +28,15 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    const login = async (email, password) => {
+    const login = async (identifier, password) => {
         try {
-            const response = await api.post('/auth/login', { email, password });
+            // Determine if identifier is email or username
+            const isEmail = identifier.includes('@');
+            const loginData = isEmail
+                ? { email: identifier, password }
+                : { username: identifier, password };
+
+            const response = await api.post('/auth/login', loginData);
             const { token, user: userData } = response.data;
 
             localStorage.setItem('token', token);
@@ -39,7 +45,7 @@ export const AuthProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('Login error:', error);
-            toast.error(error.response?.data?.message || 'Login failed');
+            toast.error(error.response?.data?.error || 'Login failed');
             return false;
         }
     };

@@ -19,6 +19,7 @@ class User {
     constructor() {
         this.id = undefined;
         this.email = undefined;
+        this.username = undefined;
         this.name = undefined;
         this.password = undefined;
         this.pod_name = undefined;
@@ -32,13 +33,14 @@ class User {
     }
 
     toJSON() {
-        
+
         //const { password, ...rest } = this;
         //return rest;
         // Explicitly return only the fields we want (avoids MikroORM Collection proxy issues)
         return {
             id: this.id,
             email: this.email,
+            username: this.username,
             name: this.name,
             pod_name: this.pod_name,
             role: this.role
@@ -52,6 +54,7 @@ const UserSchema = new EntitySchema({
     properties: {
         id: { type: 'number', primary: true, autoincrement: true },
         email: { type: 'string', unique: true },
+        username: { type: 'string', unique: true, nullable: true },
         name: { type: 'string' },
         password: { type: 'string' },
         pod_name: { type: 'string', enum: true, items: () => Object.values(PodName), nullable: true },

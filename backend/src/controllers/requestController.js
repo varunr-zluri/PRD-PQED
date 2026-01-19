@@ -153,9 +153,18 @@ const getMySubmissions = async (req, res) => {
     }
 };
 
+const RETENTION_DAYS = 30;
+
+const getExpiryDate = (createdAt) => {
+    const expiry = new Date(createdAt);
+    expiry.setDate(expiry.getDate() + RETENTION_DAYS);
+    return expiry;
+};
+
 const getRequestById = async (req, res) => {
     try {
         const em = getEM();
+        const includeExecution = req.query.include === 'execution';
         const request = await em.findOne(QueryRequest, { id: parseInt(req.params.id) }, {
             populate: ['requester', 'approver', 'executions']
         });
@@ -174,13 +183,38 @@ const getRequestById = async (req, res) => {
             }
             // Include executions if populated
             if (r.executions && r.executions.isInitialized()) {
-                result.executions = r.executions.getItems().map(e => ({
-                    id: e.id,
-                    status: e.status,
-                    result_data: e.result_data,
-                    error_message: e.error_message,
-                    executed_at: e.executed_at
-                }));
+                result.executions = r.executions.getItems().map(e => {
+                    const execData = {
+                        id: e.id,
+                        status: e.status,
+                        result_data: e.result_data,
+                        error_message: e.error_message,
+                        executed_at: e.executed_at,
+                        is_truncated: e.is_truncated,
+                        total_rows: e.total_rows
+                    };
+
+                    // Add CSV availability info when include=execution
+                    if (includeExecution && e.is_truncated) {
+                        const expiresAt = getExpiryDate(e.created_at);
+                        let csvAvailable = false;
+                        let csvExpired = false;
+
+                        if (e.result_file_path) {
+                            if (new Date() > expiresAt) {
+                                csvExpired = true;
+                            } else if (fs.existsSync(e.result_file_path)) {
+                                csvAvailable = true;
+                            }
+                        }
+
+                        execData.csv_available = csvAvailable;
+                        execData.csv_expired = csvExpired;
+                        execData.expires_at = expiresAt;
+                    }
+
+                    return execData;
+                });
             }
             return result;
         };
@@ -240,12 +274,18 @@ const updateRequest = async (req, res) => {
             let executionStatus = executionResult.success ? 'SUCCESS' : 'FAILURE';
             request.status = executionResult.success ? 'EXECUTED' : 'FAILED';
 
+            // Extract truncation metadata from result
+            const resultData = executionResult.success ? executionResult.result : null;
             const execution = em.create(QueryExecution, {
                 request: request,
                 status: executionStatus,
-                result_data: executionResult.success ? JSON.stringify(executionResult.result) : null,
+                result_data: resultData ? JSON.stringify(resultData.rows) : null,
                 error_message: executionResult.success ? null : executionResult.error,
-                executed_at: new Date()
+                executed_at: new Date(),
+                // Truncation metadata
+                is_truncated: resultData?.is_truncated || false,
+                total_rows: resultData?.total_rows || null,
+                result_file_path: resultData?.result_file_path || null
             });
 
             await em.persistAndFlush(execution);

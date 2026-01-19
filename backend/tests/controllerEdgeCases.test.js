@@ -122,7 +122,12 @@ describe('Request Controller Script Reading Edge Cases', () => {
             pod_name: 'POD_1',
             submission_type: 'SCRIPT',
             script_path: null, // null path
-            requester: { id: 1, name: 'Tester', email: 'test@test.com' }
+            requester: { id: 1, name: 'Tester', email: 'test@test.com' },
+            executions: { isInitialized: () => false, getItems: () => [] },
+            toJSON: function () {
+                const { executions, toJSON, ...rest } = this;
+                return rest;
+            }
         };
 
         mockEM.findOne.mockResolvedValue(mockRequest);

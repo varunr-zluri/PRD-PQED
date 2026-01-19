@@ -36,6 +36,15 @@ jest.mock('../src/services/executionService', () => ({
     executeRequest: jest.fn()
 }));
 
+// Mock slackService to prevent real Slack API calls
+jest.mock('../src/services/slackService', () => ({
+    notifyNewSubmission: jest.fn().mockResolvedValue(undefined),
+    notifyApprovalResult: jest.fn().mockResolvedValue(undefined),
+    notifyRejection: jest.fn().mockResolvedValue(undefined),
+    getUserByEmail: jest.fn().mockResolvedValue(null),
+    sendDM: jest.fn().mockResolvedValue(true)
+}));
+
 describe('Approval Endpoints', () => {
     let mockEM;
 
@@ -61,7 +70,9 @@ describe('Approval Endpoints', () => {
                 requester: { id: 1 },
                 db_type: 'POSTGRESQL',
                 instance_name: 'test-db',
-                query_content: 'SELECT 1'
+                query_content: 'SELECT 1',
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, status: this.status }; }
             };
 
             const mockExecution = { id: 1, status: 'SUCCESS' };
@@ -87,7 +98,9 @@ describe('Approval Endpoints', () => {
                 id: 1,
                 status: 'PENDING',
                 pod_name: 'POD_1',
-                requester: { id: 1 }
+                requester: { id: 1 },
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, status: this.status }; }
             };
 
             const mockExecution = { id: 1, status: 'FAILURE' };
@@ -141,7 +154,9 @@ describe('Approval Endpoints', () => {
                 id: 1,
                 status: 'PENDING',
                 pod_name: 'POD_1',
-                requester: { id: 1 }
+                requester: { id: 1 },
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, status: this.status }; }
             };
 
             mockEM.findOne.mockResolvedValue(mockRequest);

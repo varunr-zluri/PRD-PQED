@@ -83,7 +83,9 @@ describe('Request Edge Cases', () => {
                 status: 'PENDING',
                 pod_name: 'POD_1',
                 submission_type: 'QUERY',
-                requester: { id: 1, name: 'Tester', email: 'tester@example.com' }
+                requester: { id: 1, name: 'Tester', email: 'tester@example.com' },
+                executions: { isInitialized: () => false },
+                toJSON: function () { return { id: this.id, query_content: this.query_content, status: this.status, pod_name: this.pod_name }; }
             };
 
             mockEM.findOne.mockResolvedValue(mockRequest);

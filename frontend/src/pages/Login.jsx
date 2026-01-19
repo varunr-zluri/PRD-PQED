@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, User } from 'lucide-react';
 
 const Login = () => {
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -13,7 +13,7 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        const success = await login(email, password);
+        const success = await login(identifier, password);
         if (success) {
             navigate('/');
         }
@@ -44,16 +44,16 @@ const Login = () => {
 
                 <form onSubmit={handleSubmit}>
                     <div className="input-group">
-                        <label className="label">Email Address</label>
+                        <label className="label">Email or Username</label>
                         <div style={{ position: 'relative' }}>
-                            <Mail size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94a3b8' }} />
+                            <User size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94a3b8' }} />
                             <input
-                                type="email"
+                                type="text"
                                 className="input"
                                 style={{ paddingLeft: '40px', width: '100%' }}
-                                placeholder="name@zluri.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="name@zluri.com or username"
+                                value={identifier}
+                                onChange={(e) => setIdentifier(e.target.value)}
                                 required
                             />
                         </div>
@@ -95,3 +95,4 @@ const Login = () => {
 };
 
 export default Login;
+

@@ -95,10 +95,32 @@ export const getMySubmissions = async (filters = {}) => {
     return response.data;
 };
 
-// Get single request by ID
-export const getRequestById = async (id) => {
-    const response = await api.get(`/requests/${id}`);
+// Get single request by ID (with optional execution details)
+export const getRequestById = async (id, includeExecution = false) => {
+    const url = includeExecution ? `/requests/${id}?include=execution` : `/requests/${id}`;
+    const response = await api.get(url);
     return response.data;
+};
+
+// Legacy function - now uses getRequestById with includeExecution=true
+export const getExecutionDetails = async (requestId) => {
+    return getRequestById(requestId, true);
+};
+
+// Download CSV for truncated results
+export const downloadCSV = async (requestId) => {
+    const response = await api.get(`/requests/${requestId}/csv`, {
+        responseType: 'blob'
+    });
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `results_${requestId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
 };
 
 // Approve a request

@@ -11,11 +11,19 @@ const generateToken = (user) => {
 
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, username, password } = req.body;
         const em = getEM();
 
-        // Find user by email
-        const user = await em.findOne(User, { email });
+        // Find user by email OR username
+        let user;
+        if (email) {
+            user = await em.findOne(User, { email });
+        } else if (username) {
+            user = await em.findOne(User, { username });
+        } else {
+            return res.status(400).json({ error: 'Email or username required' });
+        }
+
         if (!user) {
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
@@ -29,7 +37,6 @@ const login = async (req, res) => {
         // Generate token
         const token = generateToken(user);
 
-        // Return user info and token (excluding password, timestamps, relationships via User.toJSON)
         res.send({ user: user.toJSON(), token });
     } catch (error) {
         res.status(400).send({ error: error.message });
@@ -38,8 +45,6 @@ const login = async (req, res) => {
 
 const logout = async (req, res) => {
     try {
-        // In a stateless JWT setup, logout is client-side (clearing token).
-        // For now, just sending success.
         res.send({ message: 'Logged out successfully' });
     } catch (error) {
         res.status(500).send();
@@ -56,18 +61,27 @@ const getMe = async (req, res) => {
 
 const signup = async (req, res) => {
     try {
-        const { email, password, name, pod_name } = req.body;
+        const { email, username, password, name, pod_name } = req.body;
         const em = getEM();
 
-        // Check if user already exists
-        const existingUser = await em.findOne(User, { email });
-        if (existingUser) {
-            return res.status(400).json({ error: 'User with this email already exists, try logging in' });
+        // Check if email already exists
+        const existingEmail = await em.findOne(User, { email });
+        if (existingEmail) {
+            return res.status(400).json({ error: 'User with this email already exists' });
         }
 
-        // Create new user (default role: DEVELOPER)
+        // Check if username already exists (if provided)
+        if (username) {
+            const existingUsername = await em.findOne(User, { username });
+            if (existingUsername) {
+                return res.status(400).json({ error: 'Username already taken' });
+            }
+        }
+
+        // Create new user
         const user = em.create(User, {
             email,
+            username: username || null,
             password,
             name,
             pod_name: pod_name || null,
@@ -76,7 +90,6 @@ const signup = async (req, res) => {
 
         await em.persistAndFlush(user);
 
-        // Return success message and user info
         res.status(201).send({
             message: 'User registered successfully. Please login.',
             user: user.toJSON()
@@ -87,9 +100,48 @@ const signup = async (req, res) => {
     }
 };
 
+const updateProfile = async (req, res) => {
+    try {
+        const { username, password, name } = req.body;
+        const em = getEM();
+        const user = req.user;
+
+        // Check if username is being changed and if it's already taken
+        if (username && username !== user.username) {
+            const existingUsername = await em.findOne(User, { username });
+            if (existingUsername) {
+                return res.status(400).json({ error: 'Username already taken' });
+            }
+            user.username = username;
+        }
+
+        // Update password if provided
+        if (password) {
+            user.password = password; // Will be hashed by beforeUpdate hook
+        }
+
+        // Update name if provided
+        if (name) {
+            user.name = name;
+        }
+
+        await em.flush();
+
+        res.send({
+            message: 'Profile updated successfully',
+            user: user.toJSON()
+        });
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(400).send({ error: error.message });
+    }
+};
+
 module.exports = {
     login,
     signup,
     logout,
-    getMe
+    getMe,
+    updateProfile
 };
+

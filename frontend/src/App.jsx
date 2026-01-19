@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import SubmitRequest from './pages/SubmitRequest';
 import ApprovalDashboard from './pages/ApprovalDashboard';
 import MySubmissions from './pages/MySubmissions';
+import Profile from './pages/Profile';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -82,6 +83,7 @@ function App() {
                 <MySubmissions />
               </DeveloperRoute>
             } />
+            <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>
         <ToastContainer

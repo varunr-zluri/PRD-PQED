@@ -16,6 +16,10 @@ class QueryExecution {
         this.executed_at = new Date();
         this.created_at = new Date();
         this.updated_at = new Date();
+        // Truncation & CSV export fields
+        this.is_truncated = false;
+        this.total_rows = undefined;
+        this.result_file_path = undefined;
     }
 }
 
@@ -30,8 +34,14 @@ const QueryExecutionSchema = new EntitySchema({
         error_message: { type: 'text', nullable: true },
         executed_at: { type: 'Date', onCreate: () => new Date() },
         created_at: { type: 'Date', onCreate: () => new Date() },
-        updated_at: { type: 'Date', onCreate: () => new Date(), onUpdate: () => new Date() }
+        updated_at: { type: 'Date', onCreate: () => new Date(), onUpdate: () => new Date() },
+        // Truncation & CSV export fields
+        is_truncated: { type: 'boolean', default: false },
+        total_rows: { type: 'number', nullable: true },
+        result_file_path: { type: 'string', nullable: true }
     }
 });
 
 module.exports = { QueryExecution, QueryExecutionSchema, ExecutionStatus };
+
+

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { getRequestById, approveRequest, rejectRequest } from '../api/client';
+import { getRequestById, approveRequest, rejectRequest, downloadCSV } from '../api/client';
 import StatusBadge from './StatusBadge';
 import Modal from './Modal';
-import { Database, User, Calendar, MessageSquare, FileText, Code, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Database, User, Calendar, MessageSquare, FileText, Code, CheckCircle, XCircle, AlertCircle, Download, AlertTriangle } from 'lucide-react';
 
 const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, showActions = false }) => {
     const [request, setRequest] = useState(null);
@@ -11,6 +11,7 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
     const [actionLoading, setActionLoading] = useState(false);
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [downloadingCSV, setDownloadingCSV] = useState(false);
 
     useEffect(() => {
         if (isOpen && requestId) {
@@ -60,6 +61,18 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
             toast.error(error.response?.data?.error || 'Failed to reject request');
         }
         setActionLoading(false);
+    };
+
+    const handleDownloadCSV = async () => {
+        setDownloadingCSV(true);
+        try {
+            await downloadCSV(requestId);
+            toast.success('CSV downloaded successfully');
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.response?.data?.reason || 'Failed to download CSV';
+            toast.error(errorMsg);
+        }
+        setDownloadingCSV(false);
     };
 
     const formatDate = (dateString) => {
@@ -115,7 +128,7 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
                             onClick={handleApprove}
                             disabled={actionLoading}
                         >
-                            {actionLoading ? 'Processing...' : 'Approve & Execute'}
+                            {actionLoading ? 'Processing...' : 'Approve'}
                         </button>
                     </>
                 ) : showRejectForm ? (
@@ -251,6 +264,26 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
                                         <StatusBadge status={exec.status} />
                                         <span className="text-sm">{formatDate(exec.executed_at)}</span>
                                     </div>
+
+                                    {/* Truncation Warning */}
+                                    {exec.is_truncated && (
+                                        <div className="truncation-warning">
+                                            <AlertTriangle size={16} />
+                                            <span>
+                                                Showing 100 of {exec.total_rows} rows.
+                                                <button
+                                                    className="btn-link"
+                                                    onClick={handleDownloadCSV}
+                                                    disabled={downloadingCSV}
+                                                    style={{ marginLeft: '8px' }}
+                                                >
+                                                    <Download size={14} />
+                                                    {downloadingCSV ? 'Downloading...' : 'Download Full CSV'}
+                                                </button>
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {exec.result_data && (
                                         <pre className="code-block code-block-sm">
                                             <code>{typeof exec.result_data === 'string' ? exec.result_data : JSON.stringify(exec.result_data, null, 2)}</code>
@@ -273,3 +306,4 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
 };
 
 export default RequestDetailModal;
+

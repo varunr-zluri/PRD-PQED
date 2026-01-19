@@ -45,8 +45,27 @@ jest.mock('../src/services/executionService', () => ({
     executeRequest: jest.fn()
 }));
 
+// Mock slackService to prevent real Slack API calls
+jest.mock('../src/services/slackService', () => ({
+    notifyNewSubmission: jest.fn().mockResolvedValue(undefined),
+    notifyApprovalResult: jest.fn().mockResolvedValue(undefined),
+    notifyRejection: jest.fn().mockResolvedValue(undefined),
+    getUserByEmail: jest.fn().mockResolvedValue(null),
+    sendDM: jest.fn().mockResolvedValue(true)
+}));
+
 describe('Request Controller Extended Tests', () => {
     let mockEM;
+
+    // Helper to create properly mocked request objects
+    const createMockRequest = (props) => ({
+        ...props,
+        executions: { isInitialized: () => false, getItems: () => [] },
+        toJSON: function () {
+            const { executions, toJSON, ...rest } = this;
+            return rest;
+        }
+    });
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -63,14 +82,14 @@ describe('Request Controller Extended Tests', () => {
 
     describe('GET /api/requests/:id - ADMIN access', () => {
         it('should allow ADMIN to view any request regardless of POD', async () => {
-            const mockRequest = {
+            const mockRequest = createMockRequest({
                 id: 1,
                 query_content: 'SELECT 1',
                 status: 'PENDING',
                 pod_name: 'POD_2',
                 submission_type: 'QUERY',
                 requester: { id: 99, name: 'Other User', email: 'other@test.com' }
-            };
+            });
 
             mockEM.findOne.mockResolvedValue(mockRequest);
 
@@ -97,14 +116,14 @@ describe('Request Controller Extended Tests', () => {
             fs.writeFileSync(testScriptPath, scriptContent);
 
             try {
-                const mockRequest = {
+                const mockRequest = createMockRequest({
                     id: 1,
                     status: 'PENDING',
                     pod_name: 'POD_1',
                     submission_type: 'SCRIPT',
                     script_path: testScriptPath,
                     requester: { id: 1, name: 'Tester', email: 'test@test.com' }
-                };
+                });
 
                 mockEM.findOne.mockResolvedValue(mockRequest);
 
@@ -122,14 +141,14 @@ describe('Request Controller Extended Tests', () => {
         });
 
         it('should return null for script_content if file does not exist', async () => {
-            const mockRequest = {
+            const mockRequest = createMockRequest({
                 id: 1,
                 status: 'PENDING',
                 pod_name: 'POD_1',
                 submission_type: 'SCRIPT',
                 script_path: '/nonexistent/path/script.js',
                 requester: { id: 1, name: 'Tester', email: 'test@test.com' }
-            };
+            });
 
             mockEM.findOne.mockResolvedValue(mockRequest);
 
@@ -140,14 +159,14 @@ describe('Request Controller Extended Tests', () => {
         });
 
         it('should block path traversal attempts', async () => {
-            const mockRequest = {
+            const mockRequest = createMockRequest({
                 id: 1,
                 status: 'PENDING',
                 pod_name: 'POD_1',
                 submission_type: 'SCRIPT',
                 script_path: '../../../etc/passwd',  // Path traversal attempt
                 requester: { id: 1, name: 'Tester', email: 'test@test.com' }
-            };
+            });
 
             mockEM.findOne.mockResolvedValue(mockRequest);
 
@@ -162,8 +181,8 @@ describe('Request Controller Extended Tests', () => {
     describe('GET /api/requests - ADMIN list access', () => {
         it('should return all requests for ADMIN without POD filter', async () => {
             const mockRequests = [
-                { id: 1, pod_name: 'POD_1', requester: { id: 1, name: 'U1', email: 'u1@test.com' } },
-                { id: 2, pod_name: 'POD_2', requester: { id: 2, name: 'U2', email: 'u2@test.com' } }
+                createMockRequest({ id: 1, pod_name: 'POD_1', requester: { id: 1, name: 'U1', email: 'u1@test.com' } }),
+                createMockRequest({ id: 2, pod_name: 'POD_2', requester: { id: 2, name: 'U2', email: 'u2@test.com' } })
             ];
 
             mockEM.findAndCount.mockResolvedValue([mockRequests, 2]);
@@ -178,12 +197,12 @@ describe('Request Controller Extended Tests', () => {
     describe('Approver info in responses', () => {
         it('should include approver info when present', async () => {
             const mockRequests = [
-                {
+                createMockRequest({
                     id: 1,
                     status: 'APPROVED',
                     requester: { id: 1, name: 'Requester', email: 'req@test.com' },
                     approver: { id: 2, name: 'Approver', email: 'app@test.com' }
-                }
+                })
             ];
 
             mockEM.findAndCount.mockResolvedValue([mockRequests, 1]);

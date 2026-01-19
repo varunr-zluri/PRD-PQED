@@ -25,6 +25,10 @@ backend/coverage/
 backend/logs/
 backend/scripts/test/
 
+# Frontend
+frontend/coverage/
+
+
 # IDE
 .idea/
 .vscode/

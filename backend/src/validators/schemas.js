@@ -6,17 +6,28 @@ const validPodNames = podsConfig.pods.map(pod => pod.pod_name);
 
 // Auth Schemas
 const loginSchema = z.object({
-    email: z.string().email('Invalid email format'),
+    email: z.string().email('Invalid email format').optional(),
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
     password: z.string().min(1, 'Password is required')
-});
+}).refine(
+    (data) => data.email || data.username,
+    { message: 'Email or username is required' }
+);
 
 const signupSchema = z.object({
     email: z.string().email('Invalid email format'),
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     name: z.string().min(1, 'Name is required'),
     pod_name: z.string().refine(val => !val || validPodNames.includes(val), {
         message: `pod_name must be one of: ${validPodNames.join(', ')}`
     }).optional()
+});
+
+const updateProfileSchema = z.object({
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+    name: z.string().min(1, 'Name cannot be empty').optional()
 });
 
 // Request Schemas
@@ -72,6 +83,7 @@ const requestFiltersSchema = paginationSchema.extend({
 module.exports = {
     loginSchema,
     signupSchema,
+    updateProfileSchema,
     submitRequestSchema,
     updateRequestSchema,
     paginationSchema,
