@@ -8,6 +8,10 @@ jest.mock('mongoose', () => ({
     }
 }));
 
+jest.mock('../src/utils/cloudStorage', () => ({
+    uploadString: jest.fn().mockResolvedValue('https://res.cloudinary.com/test/raw/upload/test.csv')
+}));
+
 describe('Mongo Executor', () => {
     let mockClient, mockCollection, mockDb;
 

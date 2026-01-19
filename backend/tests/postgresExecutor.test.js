@@ -5,6 +5,10 @@ jest.mock('pg', () => ({
     Client: jest.fn()
 }));
 
+jest.mock('../src/utils/cloudStorage', () => ({
+    uploadString: jest.fn().mockResolvedValue('https://res.cloudinary.com/test/raw/upload/test.csv')
+}));
+
 describe('Postgres Executor', () => {
     let mockClient;
 

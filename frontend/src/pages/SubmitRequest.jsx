@@ -161,154 +161,254 @@ const SubmitRequest = () => {
         <div>
             <div className="page-header">
                 <h1 className="page-title">Query Submission Portal</h1>
-                <p className="page-subtitle">Submit database queries for approval and execution</p>
+                <p className="page-subtitle">Submit database queries or scripts for approval and execution</p>
             </div>
 
-            <div className="card">
-                <form onSubmit={handleSubmit}>
-                    <div className="form-row">
-                        <div className="input-group">
-                            <label className="label">Instance Name *</label>
-                            <select
-                                name="instance_name"
-                                className="select"
-                                value={formData.instance_name}
-                                onChange={handleChange}
-                                required
-                            >
-                                <option value="">Select Instance</option>
-                                {instances.map(inst => (
-                                    <option key={inst.name} value={inst.name}>
-                                        {inst.name} ({inst.type})
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div className="card" style={{ flex: '1', minWidth: '400px' }}>
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-row">
+                            <div className="input-group">
+                                <label className="label">Instance Name *</label>
+                                <select
+                                    name="instance_name"
+                                    className="select"
+                                    value={formData.instance_name}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    <option value="">Select Instance</option>
+                                    {instances.map(inst => (
+                                        <option key={inst.name} value={inst.name}>
+                                            {inst.name} ({inst.type})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="input-group">
+                                <label className="label">Database Name *</label>
+                                <select
+                                    name="database_name"
+                                    className="select"
+                                    value={formData.database_name}
+                                    onChange={handleChange}
+                                    disabled={!formData.instance_name || loadingDatabases}
+                                    required
+                                >
+                                    <option value="">
+                                        {loadingDatabases ? 'Loading...' : 'Select Database'}
                                     </option>
-                                ))}
-                            </select>
+                                    {databases.map(db => (
+                                        <option key={db} value={db}>{db}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         <div className="input-group">
-                            <label className="label">Database Name *</label>
-                            <select
-                                name="database_name"
-                                className="select"
-                                value={formData.database_name}
-                                onChange={handleChange}
-                                disabled={!formData.instance_name || loadingDatabases}
-                                required
-                            >
-                                <option value="">
-                                    {loadingDatabases ? 'Loading...' : 'Select Database'}
-                                </option>
-                                {databases.map(db => (
-                                    <option key={db} value={db}>{db}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="input-group">
-                        <label className="label">Comments *</label>
-                        <textarea
-                            name="comments"
-                            className="textarea"
-                            placeholder="Describe the purpose of this query..."
-                            value={formData.comments}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    <div className="input-group">
-                        <label className="label">Submission Type *</label>
-                        <div className="radio-group">
-                            <label className="radio-label">
-                                <input
-                                    type="radio"
-                                    name="submission_type"
-                                    value="QUERY"
-                                    checked={formData.submission_type === 'QUERY'}
-                                    onChange={handleChange}
-                                />
-                                Query
-                            </label>
-                            <label className="radio-label">
-                                <input
-                                    type="radio"
-                                    name="submission_type"
-                                    value="SCRIPT"
-                                    checked={formData.submission_type === 'SCRIPT'}
-                                    onChange={handleChange}
-                                />
-                                Script
-                            </label>
-                        </div>
-                    </div>
-
-                    {formData.submission_type === 'QUERY' ? (
-                        <div className="input-group">
-                            <label className="label">SQL/MongoDB Query *</label>
+                            <label className="label">Comments *</label>
                             <textarea
-                                name="query_content"
+                                name="comments"
                                 className="textarea"
-                                style={{ fontFamily: 'Monaco, Menlo, monospace', minHeight: '150px' }}
-                                placeholder={formData.db_type === 'MONGODB'
-                                    ? 'db.collection.find({...})'
-                                    : 'SELECT * FROM table_name WHERE ...'}
-                                value={formData.query_content}
+                                placeholder="Describe the purpose of this query..."
+                                value={formData.comments}
                                 onChange={handleChange}
+                                required
                             />
                         </div>
-                    ) : (
-                        <div className="input-group">
-                            <label className="label">Upload Script *</label>
-                            <FileUpload
-                                file={scriptFile}
-                                onFileSelect={setScriptFile}
-                                onClear={() => setScriptFile(null)}
-                            />
-                            <p className="text-sm text-gray" style={{ marginTop: '8px' }}>
-                                Scripts run in a sandboxed environment with access to database connections via environment variables.
-                            </p>
-                        </div>
-                    )}
 
-                    {pods.length > 0 && (
                         <div className="input-group">
-                            <label className="label">POD Name</label>
-                            <select
-                                name="pod_name"
-                                className="select"
-                                value={formData.pod_name}
-                                onChange={handleChange}
+                            <label className="label">Submission Type *</label>
+                            <div className="radio-group">
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="submission_type"
+                                        value="QUERY"
+                                        checked={formData.submission_type === 'QUERY'}
+                                        onChange={handleChange}
+                                    />
+                                    Query
+                                </label>
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="submission_type"
+                                        value="SCRIPT"
+                                        checked={formData.submission_type === 'SCRIPT'}
+                                        onChange={handleChange}
+                                    />
+                                    Script
+                                </label>
+                            </div>
+                        </div>
+
+                        {formData.submission_type === 'QUERY' ? (
+                            <div className="input-group">
+                                <label className="label">SQL/MongoDB Query *</label>
+                                <textarea
+                                    name="query_content"
+                                    className="textarea"
+                                    style={{ fontFamily: 'Monaco, Menlo, monospace', minHeight: '150px' }}
+                                    placeholder={formData.db_type === 'MONGODB'
+                                        ? 'db.collection.find({...})'
+                                        : 'SELECT * FROM table_name WHERE ...'}
+                                    value={formData.query_content}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                        ) : (
+                            <div className="input-group">
+                                <label className="label">Upload Script *</label>
+                                <FileUpload
+                                    file={scriptFile}
+                                    onFileSelect={setScriptFile}
+                                    onClear={() => setScriptFile(null)}
+                                />
+                                <p className="text-sm text-gray" style={{ marginTop: '8px' }}>
+                                    Scripts run in a sandboxed environment. See example code →
+                                </p>
+                            </div>
+                        )}
+
+                        {pods.length > 0 && (
+                            <div className="input-group">
+                                <label className="label">POD Name</label>
+                                <select
+                                    name="pod_name"
+                                    className="select"
+                                    value={formData.pod_name}
+                                    onChange={handleChange}
+                                >
+                                    {pods.map(pod => (
+                                        <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={loading}
                             >
-                                {pods.map(pod => (
-                                    <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
-                                ))}
-                            </select>
+                                {loading ? (
+                                    <><span className="spinner" /> Submitting...</>
+                                ) : (
+                                    <><Send size={18} /> Submit Request</>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={handleReset}
+                                disabled={loading}
+                            >
+                                <RotateCcw size={18} /> Reset
+                            </button>
                         </div>
-                    )}
+                    </form>
+                </div>
 
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                        <button
-                            type="submit"
-                            className="btn btn-primary"
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <><span className="spinner" /> Submitting...</>
-                            ) : (
-                                <><Send size={18} /> Submit Request</>
-                            )}
-                        </button>
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={handleReset}
-                            disabled={loading}
-                        >
-                            <RotateCcw size={18} /> Reset
-                        </button>
+                {/* Documentation Sidebar - Only for Scripts */}
+                {formData.submission_type === 'SCRIPT' && (
+                    <div className="card" style={{ width: '400px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                        <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                            <RotateCcw size={20} className="text-primary" /> {/* Reuse icon as placeholder */}
+                            Node.js Scripts (.js)
+                        </h3>
+
+                        <div style={{ marginBottom: '20px' }}>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '8px' }}>Environment Variables:</h4>
+                            <ul style={{ fontSize: '0.85rem', paddingLeft: '20px', color: '#475569' }}>
+                                <li style={{ marginBottom: '4px' }}>
+                                    <code>process.env.DB_CONFIG</code>
+                                    <span style={{ display: 'block', color: '#64748b', fontSize: '0.8rem' }}>Postgres Config (JSON string)</span>
+                                </li>
+                                <li>
+                                    <code>process.env.MONGO_URI</code>
+                                    <span style={{ display: 'block', color: '#64748b', fontSize: '0.8rem' }}>MongoDB Connection String</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style={{ marginBottom: '20px' }}>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '8px' }}>PostgreSQL Template:</h4>
+                            <pre style={{
+                                background: '#1e293b',
+                                color: '#e2e8f0',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                overflowX: 'auto',
+                                border: '1px solid #334155'
+                            }}>
+                                {`const { Client } = require('pg');
+
+async function run() {
+  // 1. Load config
+  const config = JSON.parse(process.env.DB_CONFIG);
+  const client = new Client(config);
+
+  try {
+    await client.connect();
+    
+    // 2. Execute query
+    const result = await client.query(
+      'SELECT * FROM users LIMIT 10'
+    );
+    
+    // 3. Return results (Array)
+    return result.rows;
+  } finally {
+    await client.end();
+  }
+}
+
+return run();`}
+                            </pre>
+                        </div>
+
+                        <div>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '8px' }}>MongoDB Template:</h4>
+                            <pre style={{
+                                background: '#1e293b',
+                                color: '#e2e8f0',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                overflowX: 'auto',
+                                border: '1px solid #334155'
+                            }}>
+                                {`const { MongoClient } = require('mongodb');
+
+async function run() {
+  const client = new MongoClient(process.env.MONGO_URI);
+  
+  try {
+    await client.connect();
+    const db = client.db();
+    
+    // Execute query
+    const docs = await db.collection('users')
+      .find({})
+      .limit(10)
+      .toArray();
+      
+    // Return results (Array)
+    return docs;
+  } finally {
+    await client.close();
+  }
+}
+
+return run();`}
+                            </pre>
+                        </div>
                     </div>
-                </form>
+                )}
             </div>
         </div>
     );

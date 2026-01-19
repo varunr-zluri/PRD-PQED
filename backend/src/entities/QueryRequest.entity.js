@@ -58,6 +58,7 @@ class QueryRequest {
             database_name: this.database_name,
             submission_type: this.submission_type,
             query_content: this.query_content,
+            script_path: this.script_path, // Added for frontend to fetch script content
             comments: this.comments,
             pod_name: this.pod_name,
             status: this.status,

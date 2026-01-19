@@ -11,9 +11,9 @@ const Sidebar = () => {
 
     const navItems = [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'New Request', path: '/submit', icon: Database, hidden: isManager },
+        { name: 'New Request', path: '/submit', icon: Database }, // Managers can now submit
         { name: 'Approval Dashboard', path: '/approvals', icon: ShieldCheck, hidden: !isManager },
-        { name: 'My Submissions', path: '/history', icon: History, hidden: isManager },
+        { name: 'My Submissions', path: '/history', icon: History }, // Managers can view their history
     ];
 
     return (
