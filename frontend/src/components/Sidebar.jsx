@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Database, History, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import zluriLogo from '../assets/logo.svg';
 import '../index.css';
 
 const Sidebar = () => {
@@ -26,14 +27,11 @@ const Sidebar = () => {
             position: 'fixed'
         }}>
             <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                    width: '32px', height: '32px',
-                    backgroundColor: 'var(--primary)',
-                    borderRadius: '8px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 'bold'
-                }}>Z</div>
-                <span style={{ fontSize: '1.25rem', fontWeight: 600 }}>Zluri SRE</span>
+                <img
+                    src={zluriLogo}
+                    alt="Zluri"
+                    style={{ height: '32px', width: 'auto' }}
+                />
             </div>
 
             <nav style={{ flex: 1, padding: '0 12px' }}>
