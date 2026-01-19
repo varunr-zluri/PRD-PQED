@@ -34,7 +34,7 @@ const Dashboard = () => {
         }
     ];
 
-    const actions = isManager ? managerActions : developerActions;
+    const actions = isManager ? [...managerActions, ...developerActions] : developerActions;
 
     return (
         <div>

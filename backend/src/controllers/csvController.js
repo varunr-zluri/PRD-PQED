@@ -1,7 +1,5 @@
 const { getEM } = require('../config/database');
 const { QueryExecution } = require('../entities/QueryExecution.entity');
-const fs = require('fs');
-const path = require('path');
 
 const RETENTION_DAYS = 30;
 
@@ -10,6 +8,13 @@ const RETENTION_DAYS = 30;
  */
 const getExpiryDate = (createdAt) => {
     return new Date(new Date(createdAt).getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
+};
+
+/**
+ * Check if a path is a URL
+ */
+const isUrl = (path) => {
+    return path && (path.startsWith('http://') || path.startsWith('https://'));
 };
 
 /**
@@ -49,6 +54,15 @@ const downloadCSV = async (req, res) => {
                 expired_at: expiresAt
             });
         }
+
+        // If it's a cloud URL, redirect to it
+        if (isUrl(execution.result_file_path)) {
+            return res.redirect(execution.result_file_path);
+        }
+
+        // Fallback for legacy local files (unlikely in production)
+        const fs = require('fs');
+        const path = require('path');
 
         if (!fs.existsSync(execution.result_file_path)) {
             return res.status(410).json({
@@ -92,8 +106,13 @@ const getExecutionDetails = async (req, res) => {
         if (execution.result_file_path) {
             if (expiresAt && new Date() > expiresAt) {
                 fileExpired = true;
-            } else if (fs.existsSync(execution.result_file_path)) {
+            } else if (isUrl(execution.result_file_path)) {
+                // Cloud URLs are always available (until expired)
                 fileAvailable = true;
+            } else {
+                // Legacy local file check
+                const fs = require('fs');
+                fileAvailable = fs.existsSync(execution.result_file_path);
             }
         }
 
@@ -107,7 +126,8 @@ const getExecutionDetails = async (req, res) => {
             error_message: execution.error_message,
             csv_available: fileAvailable,
             csv_expired: fileExpired,
-            expires_at: expiresAt
+            expires_at: expiresAt,
+            csv_url: isUrl(execution.result_file_path) ? execution.result_file_path : null
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -115,4 +135,5 @@ const getExecutionDetails = async (req, res) => {
 };
 
 module.exports = { downloadCSV, getExecutionDetails };
+
 

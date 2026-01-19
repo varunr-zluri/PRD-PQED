@@ -15,6 +15,9 @@ jest.mock('vm2', () => ({
         on: jest.fn()
     }))
 }));
+jest.mock('../src/utils/cloudStorage', () => ({
+    uploadString: jest.fn().mockResolvedValue('https://res.cloudinary.com/test/raw/upload/test.csv')
+}));
 
 describe('Script Executor', () => {
     const mockInstance = {

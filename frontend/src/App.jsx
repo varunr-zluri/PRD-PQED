@@ -68,21 +68,13 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Dashboard />} />
-            <Route path="submit" element={
-              <DeveloperRoute>
-                <SubmitRequest />
-              </DeveloperRoute>
-            } />
+            <Route path="submit" element={<SubmitRequest />} />
             <Route path="approvals" element={
               <ManagerRoute>
                 <ApprovalDashboard />
               </ManagerRoute>
             } />
-            <Route path="history" element={
-              <DeveloperRoute>
-                <MySubmissions />
-              </DeveloperRoute>
-            } />
+            <Route path="history" element={<MySubmissions />} />
             <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>

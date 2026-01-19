@@ -254,7 +254,7 @@ const updateRequest = async (req, res) => {
             const execution = em.create(QueryExecution, {
                 request: request,
                 status: executionStatus,
-                result_data: resultData ? JSON.stringify(resultData.rows) : null,
+                result_data: resultData ? JSON.stringify(resultData.rows || resultData.output) : null,
                 error_message: executionResult.success ? null : executionResult.error,
                 executed_at: new Date(),
                 // Truncation metadata

@@ -1,17 +1,9 @@
 const mongoose = require('mongoose');
 const { VM } = require('vm2');
-const fs = require('fs');
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { uploadString } = require('../utils/cloudStorage');
 
 const MAX_ROWS = 100;
-const RESULTS_DIR = path.join(__dirname, '../../uploads/results');
-const RETENTION_DAYS = 30;
-
-// Ensure results directory exists
-if (!fs.existsSync(RESULTS_DIR)) {
-    fs.mkdirSync(RESULTS_DIR, { recursive: true });
-}
 
 /**
  * Convert array of objects to CSV string
@@ -34,7 +26,7 @@ const arrayToCSV = (data) => {
 };
 
 const executeMongoQuery = async (instance, databaseName, queryContent) => {
-    const match = queryContent.match(/^db\.([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\((.*)?\)$/);
+    const match = queryContent.match(/^db\.([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\((.*)\)$/);
     if (!match) {
         throw new Error('Invalid MongoDB query format. Expected: db.collection.method(args)');
     }
@@ -105,13 +97,13 @@ const executeMongoQuery = async (instance, databaseName, queryContent) => {
             result_file_path: null
         };
 
-        // If truncated, save full result as CSV
+        // If truncated, upload full result to Cloudinary
         if (isTruncated) {
-            const filename = `mongo_${uuidv4()}.csv`;
-            const filepath = path.join(RESULTS_DIR, filename);
-            fs.writeFileSync(filepath, arrayToCSV(allRows));
-            response.result_file_path = filepath;
-            console.log(`[MongoExecutor] Saved ${totalRows} rows to ${filename}`);
+            const filename = `mongo_${uuidv4()}`;
+            const csvContent = arrayToCSV(allRows);
+            const cloudUrl = await uploadString(csvContent, filename);
+            response.result_file_path = cloudUrl;
+            console.log(`[MongoExecutor] Uploaded ${totalRows} rows to Cloudinary`);
         }
 
         return response;
@@ -121,4 +113,5 @@ const executeMongoQuery = async (instance, databaseName, queryContent) => {
 };
 
 module.exports = { executeMongoQuery };
+
 

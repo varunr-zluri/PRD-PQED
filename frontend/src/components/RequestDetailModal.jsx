@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 import { getRequestById, approveRequest, rejectRequest, downloadCSV } from '../api/client';
 import StatusBadge from './StatusBadge';
 import Modal from './Modal';
@@ -12,6 +13,8 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
     const [downloadingCSV, setDownloadingCSV] = useState(false);
+    const [scriptContent, setScriptContent] = useState(null);
+    const [scriptLoading, setScriptLoading] = useState(false);
 
     useEffect(() => {
         if (isOpen && requestId) {
@@ -27,9 +30,23 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
 
     const fetchRequest = async () => {
         setLoading(true);
+        setScriptContent(null);
         try {
             const data = await getRequestById(requestId);
             setRequest(data);
+
+            // If it's a script and script_path is a URL, fetch the content
+            if (data.submission_type === 'SCRIPT' && data.script_path && data.script_path.startsWith('http')) {
+                setScriptLoading(true);
+                try {
+                    const response = await axios.get(data.script_path);
+                    setScriptContent(response.data);
+                } catch (err) {
+                    console.error('Failed to fetch script content:', err);
+                    setScriptContent('// Failed to load script content');
+                }
+                setScriptLoading(false);
+            }
         } catch (error) {
             toast.error('Failed to load request details');
             onClose();
@@ -90,7 +107,11 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
         if (request.submission_type === 'QUERY') {
             return request.query_content;
         }
-        return request.script_content;
+        // For scripts, prefer fetched content, fall back to embedded content
+        if (scriptLoading) {
+            return '// Loading script...';
+        }
+        return scriptContent || request.script_content || '// Script content not available';
     };
 
     const getContentLabel = () => {
