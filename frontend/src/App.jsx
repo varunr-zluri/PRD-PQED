@@ -10,6 +10,7 @@ import SubmitRequest from './pages/SubmitRequest';
 import ApprovalDashboard from './pages/ApprovalDashboard';
 import MySubmissions from './pages/MySubmissions';
 import Profile from './pages/Profile';
+import NotFound from './pages/NotFound';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -46,13 +47,7 @@ const ManagerRoute = ({ children }) => {
   return children;
 };
 
-const DeveloperRoute = ({ children }) => {
-  const { user } = useAuth();
-  if (user?.role === 'MANAGER') {
-    return <Navigate to="/approvals" />;
-  }
-  return children;
-};
+
 
 function App() {
   return (
@@ -77,6 +72,7 @@ function App() {
             <Route path="history" element={<MySubmissions />} />
             <Route path="profile" element={<Profile />} />
           </Route>
+          <Route path="*" element={<NotFound />} />
         </Routes>
         <ToastContainer
           position="top-right"
