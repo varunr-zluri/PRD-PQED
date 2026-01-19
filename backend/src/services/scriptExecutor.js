@@ -1,7 +1,6 @@
 const { NodeVM } = require('vm2');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 
 const executeScript = async (instance, databaseName, scriptPath) => {
     // Prepare environment variables with database connection info
@@ -35,23 +34,10 @@ const executeScript = async (instance, databaseName, scriptPath) => {
         }
     }
 
-    let scriptContent;
-
-    // Check if scriptPath is a URL (Cloudinary) or local path
-    if (scriptPath.startsWith('http')) {
-        try {
-            const response = await axios.get(scriptPath, { responseType: 'text' });
-            scriptContent = response.data;
-        } catch (error) {
-            throw new Error(`Failed to fetch script from URL: ${error.message}`);
-        }
-    } else {
-        // Fallback for local testing or legacy paths
-        if (!fs.existsSync(scriptPath)) {
-            throw new Error('Script file not found');
-        }
-        scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    if (!fs.existsSync(scriptPath)) {
+        throw new Error('Script file not found');
     }
+    const scriptContent = fs.readFileSync(scriptPath, 'utf8');
 
     let logs = [];
     let errors = [];

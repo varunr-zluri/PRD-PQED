@@ -1,76 +1,92 @@
-/**
- * Script Executor Tests
- * Tests for URL fetching vs Local file reading
- */
-
 const { executeScript } = require('../src/services/scriptExecutor');
-const axios = require('axios');
 const fs = require('fs');
+const path = require('path');
 
-jest.mock('axios');
-jest.mock('fs');
+// Mock dependencies
+jest.mock('fs', () => ({
+    existsSync: jest.fn(),
+    readFileSync: jest.fn()
+}));
+
 jest.mock('vm2', () => ({
     NodeVM: jest.fn().mockImplementation(() => ({
-        run: jest.fn().mockReturnValue('Script Result'),
-        on: jest.fn()
+        on: jest.fn(),
+        run: jest.fn().mockReturnValue('script output')
     }))
 }));
 
-describe('Script Executor', () => {
-    const mockInstance = {
-        type: 'POSTGRESQL',
-        host: 'localhost',
-        port: 5432,
-        user: 'user',
-        password: 'password',
-        ssl: false
-    };
+jest.mock('uuid', () => ({ v4: () => 'test-uuid' }));
 
+describe('Script Executor', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-    });
-
-    it('should fetch script from URL when path starts with http', async () => {
-        const scriptUrl = 'http://res.cloudinary.com/demo/raw/upload/script.js';
-        const scriptContent = 'console.log("Remote Script")';
-
-        // Mock axios response
-        axios.get.mockResolvedValue({ data: scriptContent });
-
-        await executeScript(mockInstance, 'testdb', scriptUrl);
-
-        expect(axios.get).toHaveBeenCalledWith(scriptUrl, { responseType: 'text' });
-        expect(fs.readFileSync).not.toHaveBeenCalled();
-    });
-
-    it('should read from local file system when path is local', async () => {
-        const localPath = '/uploads/script.js';
-        const scriptContent = 'console.log("Local Script")';
-
-        // Mock fs existence and read
         fs.existsSync.mockReturnValue(true);
-        fs.readFileSync.mockReturnValue(scriptContent);
-
-        await executeScript(mockInstance, 'testdb', localPath);
-
-        expect(fs.existsSync).toHaveBeenCalledWith(localPath);
-        expect(fs.readFileSync).toHaveBeenCalledWith(localPath, 'utf8');
-        expect(axios.get).not.toHaveBeenCalled();
+        fs.readFileSync.mockReturnValue('console.log("hello")');
     });
 
-    it('should throw error when URL fetch fails', async () => {
-        const scriptUrl = 'http://example.com/fail.js';
-        axios.get.mockRejectedValue(new Error('Network Error'));
+    it('should execute script for PostgreSQL instance', async () => {
+        const instance = { type: 'POSTGRESQL', host: 'localhost', port: 5432, user: 'test', password: 'test' };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
 
-        await expect(executeScript(mockInstance, 'testdb', scriptUrl))
-            .rejects.toThrow('Failed to fetch script from URL');
+        expect(result).toHaveProperty('output', 'script output');
+        expect(fs.existsSync).toHaveBeenCalledWith('/path/to/script.js');
+        expect(fs.readFileSync).toHaveBeenCalled();
     });
 
-    it('should throw error when local file not found', async () => {
-        const localPath = '/uploads/missing.js';
+    it('should execute script for MongoDB instance', async () => {
+        const instance = { type: 'MONGODB', host: 'localhost', port: 27017, user: 'mongouser', password: 'pass' };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output', 'script output');
+    });
+
+    it('should throw error if script file not found', async () => {
         fs.existsSync.mockReturnValue(false);
 
-        await expect(executeScript(mockInstance, 'testdb', localPath))
+        const instance = { type: 'POSTGRESQL', host: 'localhost', port: 5432, user: 'test', password: 'test' };
+
+        await expect(executeScript(instance, 'testdb', '/nonexistent.js'))
             .rejects.toThrow('Script file not found');
     });
+
+    it('should handle async script result', async () => {
+        const { NodeVM } = require('vm2');
+        NodeVM.mockImplementation(() => ({
+            on: jest.fn(),
+            run: jest.fn().mockReturnValue(Promise.resolve('async result'))
+        }));
+
+        const instance = { type: 'POSTGRESQL', host: 'localhost', port: 5432, user: 'test', password: 'test' };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output', 'async result');
+    });
+
+    it('should handle MongoDB instance without auth', async () => {
+        const instance = { type: 'MONGODB', host: 'localhost', port: 27017, user: '', password: '' };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output');
+    });
+
+    it('should handle MongoDB Atlas connectionString with query params', async () => {
+        const instance = {
+            type: 'MONGODB',
+            connectionString: 'mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true'
+        };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output');
+    });
+
+    it('should handle MongoDB Atlas connectionString without query params', async () => {
+        const instance = {
+            type: 'MONGODB',
+            connectionString: 'mongodb+srv://user:pass@cluster.mongodb.net'
+        };
+        const result = await executeScript(instance, 'testdb', '/path/to/script.js');
+
+        expect(result).toHaveProperty('output');
+    });
 });
+

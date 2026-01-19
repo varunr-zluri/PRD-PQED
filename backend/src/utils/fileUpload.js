@@ -1,35 +1,40 @@
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
+const fs = require('fs');
 
-// Configure Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
+// Upload scripts to uploads/scripts/ directory
+const uploadDir = 'uploads/scripts/';
 
-// Configure Cloudinary Storage
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'zluri-sre/scripts', // Cloudinary folder
-        resource_type: 'raw',        // IMPORTANT: 'raw' for non-image files like .js
-        public_id: (req, file) => {
-            // Unique filename: timestamp-random-originalName
-            // Note: Cloudinary 'raw' resources keep their extension automatically if part of public_id
-            const name = path.parse(file.originalname).name;
-            return `${Date.now()}-${Math.round(Math.random() * 1E9)}-${name}`;
-        }
+// Create directory if it doesn't exist
+const ensureUploadDir = () => {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
     }
+};
+
+// Initialize upload directory
+ensureUploadDir();
+
+// Storage destination callback
+const destination = (req, file, cb) => {
+    cb(null, uploadDir);
+};
+
+// Storage filename callback
+const filename = (req, file, cb) => {
+    // Unique filename: timestamp-random-originalName
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+};
+
+const storage = multer.diskStorage({
+    destination,
+    filename
 });
 
 // File filter callback
 const fileFilter = (req, file, cb) => {
-    if (file.mimetype === 'text/javascript' ||
-        file.mimetype === 'application/javascript' ||
-        file.originalname.endsWith('.js')) {
+    if (file.mimetype === 'text/javascript' || file.mimetype === 'application/javascript' || file.originalname.endsWith('.js')) {
         cb(null, true);
     } else {
         cb(new Error('Only JavaScript (.js) files are allowed!'), false);
@@ -44,7 +49,10 @@ const upload = multer({
     }
 });
 
+// Export upload as default, plus callbacks for testing
 module.exports = upload;
+module.exports.destination = destination;
+module.exports.filename = filename;
 module.exports.fileFilter = fileFilter;
-module.exports.storage = storage;
-
+module.exports.ensureUploadDir = ensureUploadDir;
+module.exports.uploadDir = uploadDir;
