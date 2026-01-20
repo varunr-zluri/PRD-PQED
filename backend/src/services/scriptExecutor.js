@@ -1,10 +1,19 @@
-const { NodeVM } = require('vm2');
+/**
+ * Script Executor with Worker Thread Isolation
+ * 
+ * Executes user scripts in a separate worker thread to:
+ * 1. Prevent infinite loops from crashing the server
+ * 2. Enforce timeouts by terminating the worker
+ * 3. Isolate script execution from the main event loop
+ */
+const { Worker } = require('worker_threads');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { uploadString } = require('../utils/cloudStorage');
 
 const MAX_ROWS = 100;
+const SCRIPT_TIMEOUT_MS = 60000; // 60 seconds
 
 /**
  * Convert array of objects to CSV string
@@ -26,29 +35,26 @@ const arrayToCSV = (data) => {
     return csvRows.join('\n');
 };
 
+/**
+ * Execute script in an isolated worker thread with timeout enforcement
+ */
 const executeScript = async (instance, databaseName, scriptPath) => {
     // Prepare environment variables with database connection info
     const env = {};
 
     if (instance.type === 'POSTGRESQL') {
-        // Inject PostgreSQL config as JSON string in env var
-        // Scripts should use: JSON.parse(process.env.DB_CONFIG)
         const config = {
             host: instance.host,
             port: instance.port,
             database: databaseName,
             user: instance.user,
             password: instance.password,
-            // Use instance.ssl if defined, otherwise enable SSL for cloud compatibility
             ssl: instance.ssl !== undefined ? instance.ssl : { rejectUnauthorized: false }
         };
         env.DB_CONFIG = JSON.stringify(config);
     } else if (instance.type === 'MONGODB') {
-        // Inject MongoDB URI - support both Atlas SRV and standard connections
         if (instance.connectionString) {
-            // Use provided connection string (for Atlas SRV)
             env.MONGO_URI = instance.connectionString.replace('/?', `/${databaseName}?`);
-            // Handle case where there's no query string
             if (!env.MONGO_URI.includes('?')) {
                 env.MONGO_URI = `${instance.connectionString}/${databaseName}`;
             }
@@ -69,73 +75,93 @@ const executeScript = async (instance, databaseName, scriptPath) => {
             throw new Error(`Failed to fetch script from URL: ${error.message}`);
         }
     } else {
-        // Fallback for local testing or legacy paths
         if (!fs.existsSync(scriptPath)) {
             throw new Error('Script file not found');
         }
         scriptContent = fs.readFileSync(scriptPath, 'utf8');
     }
 
-    let logs = [];
-    let errors = [];
+    // Execute in worker thread with timeout
+    return new Promise((resolve, reject) => {
+        const workerPath = path.join(__dirname, 'scriptWorker.js');
 
-    const vm = new NodeVM({
-        console: 'redirect',
-        sandbox: { process: { env } },
-        require: {
-            external: ['pg', 'mongodb', 'mongoose'],
-            builtin: ['path', 'util'],  // No 'fs' - security: prevent file system access
-            root: './node_modules',
-        },
-        timeout: 60000,
-        wasm: false
-    });
-
-    vm.on('console.log', (...args) => logs.push(args.join(' ')));
-    vm.on('console.error', (...args) => errors.push(args.join(' ')));
-
-    let scriptResult = vm.run(scriptContent, scriptPath);
-
-    if (scriptResult && typeof scriptResult.then === 'function') {
-        scriptResult = await scriptResult;
-    }
-
-    // Handle truncation for array results (like query results)
-    let rows = scriptResult;
-    let is_truncated = false;
-    let total_rows = null;
-    let result_file_path = null;
-
-    if (Array.isArray(scriptResult) && scriptResult.length > 0) {
-        total_rows = scriptResult.length;
-        is_truncated = total_rows > MAX_ROWS;
-
-        if (is_truncated) {
-            rows = scriptResult.slice(0, MAX_ROWS);
-            // Upload full results to Cloudinary
-            try {
-                const filename = `script_${require('crypto').randomUUID()}`;
-                const csvContent = arrayToCSV(scriptResult);
-                result_file_path = await uploadString(csvContent, filename);
-                console.log(`[ScriptExecutor] Uploaded ${total_rows} rows to Cloudinary`);
-            } catch (err) {
-                console.error('[ScriptExecutor] Failed to upload CSV:', err.message);
+        const worker = new Worker(workerPath, {
+            workerData: {
+                scriptContent,
+                env,
+                scriptPath
             }
-        }
-    }
+        });
 
-    return {
-        output: rows,
-        logs,
-        errors,
-        // Include truncation metadata (same format as query executors)
-        rows: Array.isArray(rows) ? rows : undefined,
-        is_truncated,
-        total_rows,
-        result_file_path
-    };
+        // Timeout handler - terminates worker after SCRIPT_TIMEOUT_MS
+        const timeoutId = setTimeout(() => {
+            worker.terminate();
+            reject(new Error('Script execution timed out: The script took longer than 60 seconds to complete and was terminated. Please optimize your script or break it into smaller operations.'));
+        }, SCRIPT_TIMEOUT_MS);
+
+        // Handle worker messages (script completed)
+        worker.on('message', async (message) => {
+            clearTimeout(timeoutId);
+
+            if (!message.success) {
+                reject(new Error(message.error));
+                return;
+            }
+
+            // Process the result
+            let scriptResult = message.result;
+            let logs = message.logs || [];
+            let errors = message.errors || [];
+
+            // Handle truncation for array results
+            let rows = scriptResult;
+            let is_truncated = false;
+            let total_rows = null;
+            let result_file_path = null;
+
+            if (Array.isArray(scriptResult) && scriptResult.length > 0) {
+                total_rows = scriptResult.length;
+                is_truncated = total_rows > MAX_ROWS;
+
+                if (is_truncated) {
+                    rows = scriptResult.slice(0, MAX_ROWS);
+                    try {
+                        const filename = `script_${require('crypto').randomUUID()}`;
+                        const csvContent = arrayToCSV(scriptResult);
+                        result_file_path = await uploadString(csvContent, filename);
+                        console.log(`[ScriptExecutor] Uploaded ${total_rows} rows to Cloudinary`);
+                    } catch (err) {
+                        console.error('[ScriptExecutor] Failed to upload CSV:', err.message);
+                    }
+                }
+            }
+
+            resolve({
+                output: rows,
+                logs,
+                errors,
+                rows: Array.isArray(rows) ? rows : undefined,
+                is_truncated,
+                total_rows,
+                result_file_path
+            });
+        });
+
+        // Handle worker errors
+        worker.on('error', (err) => {
+            clearTimeout(timeoutId);
+            reject(new Error(`Script execution failed: ${err.message}`));
+        });
+
+        // Handle worker exit (unexpected termination)
+        worker.on('exit', (code) => {
+            clearTimeout(timeoutId);
+            if (code !== 0) {
+                // Worker was terminated (likely by our timeout)
+                // Error already handled by timeout handler
+            }
+        });
+    });
 };
 
 module.exports = { executeScript };
-
-

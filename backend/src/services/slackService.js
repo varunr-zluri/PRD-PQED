@@ -131,37 +131,47 @@ const notifyApprovalResult = async (request, approver, executionResult, requeste
         ? JSON.stringify(executionResult.result).substring(0, 500)
         : executionResult.error;
 
-    const dmBlocks = [
-        {
-            type: 'section',
-            text: {
-                type: 'mrkdwn',
-                text: `${emoji} *Query ${status}*\n*Database:* ${request.instance_name} (${request.db_type})\n\n*Result:*\n\`\`\`${resultPreview}${resultPreview.length >= 500 ? '...' : ''}\`\`\``
-            }
-        },
-        {
-            type: 'actions',
-            elements: [{
-                type: 'button',
-                text: { type: 'plain_text', text: '📋 View My Submissions', emoji: true },
-                url: MY_SUBMISSIONS_URL
-            }]
+    const resultSection = {
+        type: 'section',
+        text: {
+            type: 'mrkdwn',
+            text: `${emoji} *Query ${status}*\n*Database:* ${request.instance_name} (${request.db_type})\n\n*Result:*\n\`\`\`${resultPreview}${resultPreview.length >= 500 ? '...' : ''}\`\`\``
         }
-    ];
+    };
 
-    // DM to requester
+    // DM to requester (with My Submissions link)
     if (requesterEmail) {
         const requesterId = await getUserByEmail(requesterEmail);
         if (requesterId) {
-            await sendDM(requesterId, `${emoji} Your Query ${status}`, dmBlocks);
+            await sendDM(requesterId, `${emoji} Your Query ${status}`, [
+                resultSection,
+                {
+                    type: 'actions',
+                    elements: [{
+                        type: 'button',
+                        text: { type: 'plain_text', text: '📋 Details', emoji: true },
+                        url: MY_SUBMISSIONS_URL
+                    }]
+                }
+            ]);
         }
     }
 
-    // DM to approver (manager)
+    // DM to approver (manager) with Approval Dashboard link
     if (approver.email) {
         const approverId = await getUserByEmail(approver.email);
         if (approverId) {
-            await sendDM(approverId, `${emoji} Query ${status}`, dmBlocks);
+            await sendDM(approverId, `${emoji} Query ${status}`, [
+                resultSection,
+                {
+                    type: 'actions',
+                    elements: [{
+                        type: 'button',
+                        text: { type: 'plain_text', text: '📋 Details', emoji: true },
+                        url: APPROVAL_DASHBOARD_URL
+                    }]
+                }
+            ]);
         }
     }
 };
