@@ -68,9 +68,13 @@ const buildWhereClause = (query) => {
     if (approver_id) whereClause.approver = approver_id;
 
     if (start_date && end_date) {
+        // Set end_date to end of day (23:59:59.999) to include all records from that day
+        const endOfDay = new Date(end_date);
+        endOfDay.setHours(23, 59, 59, 999);
+
         whereClause.created_at = {
             $gte: new Date(start_date),
-            $lte: new Date(end_date)
+            $lte: endOfDay
         };
     }
 
