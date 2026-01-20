@@ -24,7 +24,8 @@ const Sidebar = () => {
             display: 'flex',
             flexDirection: 'column',
             height: '100vh',
-            position: 'fixed'
+            position: 'fixed',
+            zIndex: 50
         }}>
             <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img

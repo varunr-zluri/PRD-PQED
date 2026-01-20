@@ -10,22 +10,32 @@ A secure, role-based portal for developers to submit database queries and script
   - **Admins**: Manage users and database instances
 
 - **Submission Types**
-  - **SQL Queries**: Direct execution for PostgreSQL and MongoDB
-  - **Scripts**: Upload and execute JavaScript scripts with database access
+  - **SQL Queries**: Direct execution for PostgreSQL
+  - **MongoDB Queries**: JSON-based query execution
+  - **Scripts**: Upload and execute JavaScript scripts with isolated worker threads
 
-- **Automated Execution**
-  - Approved queries execute automatically against target database
-  - Results (or errors) are captured and stored
+- **Security & Safety**
+  - **Destructive Query Detection**: Automated warnings for `DROP`, `DELETE`, `TRUNCATE`, etc.
+  - **Script Isolation**: Scripts run in `worker_threads` with `vm2` sandboxing and strict timeouts
+  - **Read-Only Enforcement**: Database connections can be configured for read-only access
+  - **Approvals**: Mandatory manager approval for execution
 
-- **Audit Trail**: Full history of requests, approvals, and execution results
+- **Integrations**
+  - **Slack Notifications**: Real-time alerts for new requests and status updates
+  - **CSV Export**: Download full result sets for large queries
+  - **Cloud Storage**: Script files securely stored via Cloudinary
 
 ## Tech Stack
 
+- **Frontend**: React, Vite, CSS Modules
 - **Backend**: Node.js, Express
-- **Database**: PostgreSQL (application data)
-- **ORM**: Sequelize
-- **Authentication**: JWT with Role-Based middleware
-- **Execution Engine**: PostgreSQL, MongoDB, and Script adapters
+- **Database**: PostgreSQL (application data & logs)
+- **ORM**: MikroORM
+- **Authentication**: JWT, custom RBAC middleware
+- **Execution Engine**:
+  - PostgreSQL (`pg`)
+  - MongoDB (`mongodb`, `mongoose`)
+  - Isolated Script Runner (`worker_threads`, `vm2`)
 
 ## Project Structure
 
@@ -33,40 +43,43 @@ A secure, role-based portal for developers to submit database queries and script
 PRD-PQED/
 ├── backend/
 │   ├── src/
-│   │   ├── config/         # DB instances, Pods config
-│   │   ├── controllers/    # Request handling logic
-│   │   ├── middleware/     # Auth & RBAC
-│   │   ├── models/         # Sequelize Models
-│   │   ├── routes/         # API Routes
-│   │   ├── services/       # Execution engines
-│   │   └── utils/          # Utilities (file upload, crypto)
-│   ├── scripts/test/       # Test scripts for execution
-│   └── uploads/            # Uploaded script files
-└── frontend/               # Frontend Application
+│   │   ├── config/             # DB & Cloudinary config
+│   │   ├── controllers/        # Request & Auth logic
+│   │   ├── entities/           # MikroORM Entities
+│   │   ├── middleware/         # Auth, RBAC, Validation
+│   │   ├── routes/             # API Routes
+│   │   ├── services/           # Executors, Slack, Destructive Detector
+│   │   └── utils/              # File upload, Helpers
+│   └── tests/                  # Unit & Integration tests
+├── frontend/
+│   ├── src/
+│   │   ├── components/         # Reusable UI components
+│   │   ├── contexts/           # Auth Context
+│   │   ├── pages/              # Application Pages
+│   │   └── api/                # API Client
 ```
 
 ## Setup & Installation
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL (local or Docker)
-- Docker (for test databases)
+- PostgreSQL
+- MongoDB (optional, for target databases)
+- Cloudinary Account (for script uploads)
 
 ### Backend Setup
 ```bash
 cd backend
 npm install
-cp .env.example .env  # Configure credentials
+# Configure .env with DB credentials and Cloudinary keys
 npm start
 ```
 
-### Test Databases (Docker)
+### Frontend Setup
 ```bash
-# PostgreSQL (port 5433)
-docker run --name test-postgres -e POSTGRES_PASSWORD=password -p 5433:5432 -d postgres:15
-
-# MongoDB (port 27017)
-docker run --name test-mongo -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -p 27017:27017 -d mongo:7
+cd frontend
+npm install
+npm run dev
 ```
 
 ## API Endpoints
@@ -77,46 +90,27 @@ docker run --name test-mongo -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB
 | POST | `/api/auth/signup` | Register new user |
 | POST | `/api/auth/login` | Login & get JWT token |
 | GET | `/api/auth/me` | Get current user info |
-| POST | `/api/auth/logout` | Logout |
-
-### Database Instances
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/database-instances` | List all instances |
-| GET | `/api/database-instances?instance=name` | List databases in instance |
 
 ### Query Requests
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/requests` | Submit query/script |
-| GET | `/api/requests` | List requests (paginated) |
+| GET | `/api/requests` | List requests (with filters) |
 | GET | `/api/requests/my-submissions` | Get user's submissions |
 | GET | `/api/requests/:id` | Get request details |
-| PUT | `/api/requests/:id` | Approve/Reject (Manager) |
+| PATCH | `/api/requests/:id` | Approve/Reject (Manager) |
+| GET | `/api/requests/:id/csv` | Download execution results |
 
-### Pods
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/pods` | List available PODs |
+## Security Features
+- **Strict Validations**: Zod schemas for all inputs
+- **Worker Threads**: Prevents main thread blocking during script execution
+- **Input Sanitization**: Prevents basic injection attacks
+- **Destructive Operation Warnings**: Alerts managers before approving dangerous queries
 
-## Database Instances (Test)
-
-| Instance | Type | Port | Available Databases |
-|----------|------|------|---------------------|
-| `test-postgres` | POSTGRESQL | 5433 | ecommerce_db, hr_system, inventory_db, analytics_db |
-| `test-mongo` | MONGODB | 27017 | logs_db, customer_db, metrics_db, sessions_db |
-
-## Postman Collection
-
-Import `backend/postman_collection.json` for ready-to-use API requests.
-
-## Status: ✅ Backend Complete
-
-- [x] Authentication (JWT)
-- [x] RBAC (Developer, Manager, Admin)
-- [x] Query Submission & Approval Workflow
-- [x] PostgreSQL Query Execution
-- [x] MongoDB Query Execution
-- [x] Script Execution (JavaScript)
-- [x] Execution Result Storage
-- [ ] Frontend Application
+## Status: ✅ Production Ready
+- [x] Full Authentication & RBAC
+- [x] Query & Script Execution Engines
+- [x] Approval Workflows
+- [x] Slack Integration
+- [x] Frontend UI (Dashboard, Approvals, History)
+- [x] Security Hardening (Worker Threads, Destructive Checks)
