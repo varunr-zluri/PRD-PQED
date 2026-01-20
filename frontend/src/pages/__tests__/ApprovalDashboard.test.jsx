@@ -3,11 +3,9 @@ import ApprovalDashboard from '../ApprovalDashboard';
 
 // Mock API client
 const mockGetRequests = jest.fn();
-const mockGetPods = jest.fn();
 
 jest.mock('../../api/client', () => ({
-    getRequests: (...args) => mockGetRequests(...args),
-    getPods: (...args) => mockGetPods(...args)
+    getRequests: (...args) => mockGetRequests(...args)
 }));
 
 jest.mock('react-toastify', () => ({
@@ -34,9 +32,6 @@ describe('ApprovalDashboard', () => {
             pages: 1,
             total: 0
         });
-        mockGetPods.mockResolvedValue([
-            { pod_name: 'pod-1', display_name: 'Pod 1' }
-        ]);
     });
 
     it('renders page title', async () => {
@@ -100,11 +95,11 @@ describe('ApprovalDashboard', () => {
         });
     });
 
-    it('renders POD filter', async () => {
+    it('renders submission type filter', async () => {
         render(<ApprovalDashboard />);
 
         await waitFor(() => {
-            expect(screen.getByText('All PODs')).toBeInTheDocument();
+            expect(screen.getByText('All Types')).toBeInTheDocument();
         });
     });
 

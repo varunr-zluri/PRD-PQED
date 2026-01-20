@@ -2,6 +2,7 @@ const { QueryRequest, User, QueryExecution } = require('../entities');
 const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
 const slackService = require('../services/slackService');
+const { validateQuery } = require('../services/validateQuery');
 const fs = require('fs'); // Keep for CSV check for now, though ephemeral
 const path = require('path');
 
@@ -23,6 +24,11 @@ const submitRequest = async (req, res) => {
         };
 
         if (submission_type === 'QUERY') {
+            // Validate query syntax before submission
+            const validation = validateQuery(query_content, db_type);
+            if (!validation.valid) {
+                return res.status(400).json({ error: validation.error });
+            }
             requestData.query_content = query_content;
         } else if (submission_type === 'SCRIPT') {
             if (!req.file) {
@@ -69,10 +75,7 @@ const buildWhereClause = (query) => {
     }
 
     if (search) {
-        whereClause.$or = [
-            { query_content: { $like: `%${search}%` } },
-            { comments: { $like: `%${search}%` } }
-        ];
+        whereClause.query_content = { $like: `%${search}%` };
     }
 
     return whereClause;

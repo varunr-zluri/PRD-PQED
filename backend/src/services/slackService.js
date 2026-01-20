@@ -1,10 +1,15 @@
 const { WebClient } = require('@slack/web-api');
+const config = require('../config/env');
 
 // Initialize Slack client
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
 // Channel for notifications
 const APPROVAL_CHANNEL = process.env.SLACK_CHANNEL_ID;
+
+// Dashboard URLs
+const APPROVAL_DASHBOARD_URL = `${config.frontendUrl}/approvals`;
+const MY_SUBMISSIONS_URL = `${config.frontendUrl}/history`;
 
 /**
  * Look up Slack user by email and return their user ID
@@ -72,13 +77,24 @@ const notifyNewSubmission = async (request, requester, managerEmail) => {
                 ? '[Script Upload]'
                 : (request.query_content?.substring(0, 200) || 'N/A');
 
-            await sendDM(managerId, 'New Query Request to Review', [{
-                type: 'section',
-                text: {
-                    type: 'mrkdwn',
-                    text: `:bell: *New Query Request for Review*\n*Requester:* ${requester.name} (${requester.email})\n*Database:* ${request.instance_name} (${request.db_type})\n*POD:* ${request.pod_name}\n*Query:*\n\`\`\`${queryPreview}\`\`\``
+            await sendDM(managerId, 'New Query Request to Review', [
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: `:bell: *New Query Request for Review*\n*Requester:* ${requester.name} (${requester.email})\n*Database:* ${request.instance_name} (${request.db_type})\n*POD:* ${request.pod_name}\n*Query:*\n\`\`\`${queryPreview}\`\`\``
+                    }
+                },
+                {
+                    type: 'actions',
+                    elements: [{
+                        type: 'button',
+                        text: { type: 'plain_text', text: '📋 Open Approval Dashboard', emoji: true },
+                        url: APPROVAL_DASHBOARD_URL,
+                        style: 'primary'
+                    }]
                 }
-            }]);
+            ]);
         }
     }
 };
@@ -115,13 +131,23 @@ const notifyApprovalResult = async (request, approver, executionResult, requeste
         ? JSON.stringify(executionResult.result).substring(0, 500)
         : executionResult.error;
 
-    const dmBlocks = [{
-        type: 'section',
-        text: {
-            type: 'mrkdwn',
-            text: `${emoji} *Query ${status}*\n*Database:* ${request.instance_name} (${request.db_type})\n\n*Result:*\n\`\`\`${resultPreview}${resultPreview.length >= 500 ? '...' : ''}\`\`\``
+    const dmBlocks = [
+        {
+            type: 'section',
+            text: {
+                type: 'mrkdwn',
+                text: `${emoji} *Query ${status}*\n*Database:* ${request.instance_name} (${request.db_type})\n\n*Result:*\n\`\`\`${resultPreview}${resultPreview.length >= 500 ? '...' : ''}\`\`\``
+            }
+        },
+        {
+            type: 'actions',
+            elements: [{
+                type: 'button',
+                text: { type: 'plain_text', text: '📋 View My Submissions', emoji: true },
+                url: MY_SUBMISSIONS_URL
+            }]
         }
-    }];
+    ];
 
     // DM to requester
     if (requesterEmail) {
@@ -148,13 +174,23 @@ const notifyRejection = async (request, approver, requesterEmail, reason) => {
 
     const requesterId = await getUserByEmail(requesterEmail);
     if (requesterId) {
-        await sendDM(requesterId, 'Your Query Request was Rejected', [{
-            type: 'section',
-            text: {
-                type: 'mrkdwn',
-                text: `:no_entry: *Your Query Request was Rejected*\n*Database:* ${request.instance_name} (${request.db_type})\n*Rejected by:* ${approver.name}\n*Reason:* ${reason || 'No reason provided'}`
+        await sendDM(requesterId, 'Your Query Request was Rejected', [
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `:no_entry: *Your Query Request was Rejected*\n*Database:* ${request.instance_name} (${request.db_type})\n*Rejected by:* ${approver.name}\n*Reason:* ${reason || 'No reason provided'}`
+                }
+            },
+            {
+                type: 'actions',
+                elements: [{
+                    type: 'button',
+                    text: { type: 'plain_text', text: '📋 View My Submissions', emoji: true },
+                    url: MY_SUBMISSIONS_URL
+                }]
             }
-        }]);
+        ]);
         console.log(`[Slack] Sent rejection DM to ${requesterEmail}`);
     }
 };

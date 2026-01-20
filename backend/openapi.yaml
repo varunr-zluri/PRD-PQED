@@ -1,0 +1,996 @@
+openapi: 3.0.3
+info:
+  title: Database Query Portal API
+  description: |
+    API for the Database Query Portal - a platform for developers to submit database queries/scripts 
+    for manager approval and execution. Supports PostgreSQL and MongoDB databases with role-based 
+    access control (DEVELOPER, MANAGER, ADMIN).
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://your-production-url.com/api
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and profile management
+  - name: Database Instances
+    description: Database instance and connection information
+  - name: Pods
+    description: POD (team) configuration
+  - name: Requests
+    description: Query/Script request management and approval workflow
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login endpoint
+
+  schemas:
+    # Enums
+    DbType:
+      type: string
+      enum: [POSTGRESQL, MONGODB]
+      description: Database type
+
+    SubmissionType:
+      type: string
+      enum: [QUERY, SCRIPT]
+      description: Type of submission
+
+    RequestStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED, EXECUTED, FAILED]
+      description: Status of a request
+
+    UserRole:
+      type: string
+      enum: [DEVELOPER, MANAGER, ADMIN]
+      description: User role for access control
+
+    PodName:
+      type: string
+      enum: [pod-1, pod-2, pod-3, sre, de]
+      description: POD (team) identifier
+
+    # Request/Response Schemas
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email (required if username not provided)
+        username:
+          type: string
+          minLength: 3
+          description: Username (required if email not provided)
+        password:
+          type: string
+          minLength: 1
+          description: User password
+      required:
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT authentication token
+        user:
+          $ref: '#/components/schemas/User'
+
+    SignupRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email
+        username:
+          type: string
+          minLength: 3
+          description: Optional username
+        password:
+          type: string
+          minLength: 6
+          description: User password (minimum 6 characters)
+        name:
+          type: string
+          minLength: 1
+          description: User's display name
+        pod_name:
+          $ref: '#/components/schemas/PodName'
+
+    SignupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User registered successfully
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          description: New username
+        password:
+          type: string
+          minLength: 6
+          description: New password
+        name:
+          type: string
+          minLength: 1
+          description: New display name
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User email
+        username:
+          type: string
+          nullable: true
+          description: Username
+        name:
+          type: string
+          description: Display name
+        pod_name:
+          $ref: '#/components/schemas/PodName'
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    UserReference:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    DatabaseInstance:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Instance name
+        type:
+          $ref: '#/components/schemas/DbType'
+
+    Pod:
+      type: object
+      properties:
+        pod_name:
+          type: string
+          description: POD identifier
+        display_name:
+          type: string
+          description: Display name for the POD
+
+    SubmitQueryRequest:
+      type: object
+      required:
+        - db_type
+        - instance_name
+        - database_name
+        - submission_type
+      properties:
+        db_type:
+          $ref: '#/components/schemas/DbType'
+        instance_name:
+          type: string
+          description: Target database instance name
+        database_name:
+          type: string
+          description: Target database name
+        submission_type:
+          $ref: '#/components/schemas/SubmissionType'
+        query_content:
+          type: string
+          description: SQL/MongoDB query content (required for QUERY submission)
+        pod_name:
+          $ref: '#/components/schemas/PodName'
+        comments:
+          type: string
+          description: Additional comments for the request
+
+    SubmitScriptRequest:
+      type: object
+      required:
+        - db_type
+        - instance_name
+        - database_name
+        - submission_type
+        - script_file
+      properties:
+        db_type:
+          $ref: '#/components/schemas/DbType'
+        instance_name:
+          type: string
+          description: Target database instance name
+        database_name:
+          type: string
+          description: Target database name
+        submission_type:
+          type: string
+          enum: [SCRIPT]
+        pod_name:
+          $ref: '#/components/schemas/PodName'
+        comments:
+          type: string
+          description: Additional comments
+        script_file:
+          type: string
+          format: binary
+          description: Script file to upload
+
+    UpdateRequestStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED]
+          description: New status for the request
+        rejection_reason:
+          type: string
+          description: Reason for rejection (required when status is REJECTED)
+
+    QueryRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Request ID
+        db_type:
+          $ref: '#/components/schemas/DbType'
+        instance_name:
+          type: string
+        database_name:
+          type: string
+        submission_type:
+          $ref: '#/components/schemas/SubmissionType'
+        query_content:
+          type: string
+          nullable: true
+        script_path:
+          type: string
+          nullable: true
+          description: Path to uploaded script file
+        comments:
+          type: string
+          nullable: true
+        pod_name:
+          $ref: '#/components/schemas/PodName'
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        rejected_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        requester:
+          $ref: '#/components/schemas/UserReference'
+        approver:
+          $ref: '#/components/schemas/UserReference'
+
+    QueryExecution:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [SUCCESS, FAILURE]
+        result_data:
+          type: string
+          nullable: true
+          description: JSON stringified result data
+        error_message:
+          type: string
+          nullable: true
+        executed_at:
+          type: string
+          format: date-time
+        is_truncated:
+          type: boolean
+          description: Whether result was truncated
+        total_rows:
+          type: integer
+          nullable: true
+          description: Total rows before truncation
+        result_file_path:
+          type: string
+          nullable: true
+
+    PaginatedRequestsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryRequest'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+
+    ExecutionDetails:
+      type: object
+      properties:
+        csv_available:
+          type: boolean
+          description: Whether full CSV download is available
+        csv_expired:
+          type: boolean
+          description: Whether the CSV file has expired
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_truncated:
+          type: boolean
+        total_rows:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+paths:
+  # Authentication Endpoints
+  /auth/signup:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Creates a new user account. Users are assigned DEVELOPER role by default.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            example:
+              email: dev@zluri.com
+              password: password123
+              name: Test Developer
+              pod_name: pod-1
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          description: Validation error or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate with email/username and password to receive JWT token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              email_login:
+                summary: Login with email
+                value:
+                  email: dev@zluri.com
+                  password: password123
+              username_login:
+                summary: Login with username
+                value:
+                  username: testuser
+                  password: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate the current JWT token.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Returns the authenticated user's profile information.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/profile:
+    patch:
+      tags:
+        - Authentication
+      summary: Update user profile
+      description: Update the authenticated user's username, password, or name.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            example:
+              username: newusername
+              name: Updated Name
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Database Instances Endpoints
+  /database-instances:
+    get:
+      tags:
+        - Database Instances
+      summary: Get database instances
+      description: |
+        Returns list of available database instances. If `instance` query parameter is provided,
+        returns the list of database names available in that instance.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: instance
+          in: query
+          description: Instance name to get databases for
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of database instances or databases
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/DatabaseInstance'
+                    description: List of instances (when no instance param)
+                  - type: array
+                    items:
+                      type: string
+                    description: List of database names (when instance param provided)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Pods Endpoints
+  /pods:
+    get:
+      tags:
+        - Pods
+      summary: Get all PODs
+      description: Returns list of all available PODs (teams) in the system.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of PODs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pod'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Request Endpoints
+  /requests:
+    post:
+      tags:
+        - Requests
+      summary: Submit a new request
+      description: |
+        Submit a query or script request for approval. For QUERY type, provide `query_content`.
+        For SCRIPT type, upload a file using multipart/form-data.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitQueryRequest'
+            example:
+              db_type: POSTGRESQL
+              instance_name: test-postgres
+              database_name: postgres
+              submission_type: QUERY
+              query_content: SELECT * FROM users LIMIT 10;
+              pod_name: pod-1
+              comments: Test query request
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubmitScriptRequest'
+      responses:
+        '201':
+          description: Request submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryRequest'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - Requests
+      summary: List all requests (Admin/Manager)
+      description: |
+        Returns paginated list of requests. ADMIN can see all requests, MANAGER can only see 
+        requests from their POD. Supports various filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page (default 10, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            $ref: '#/components/schemas/RequestStatus'
+        - name: pod_name
+          in: query
+          description: Filter by POD
+          schema:
+            $ref: '#/components/schemas/PodName'
+        - name: db_type
+          in: query
+          description: Filter by database type
+          schema:
+            $ref: '#/components/schemas/DbType'
+        - name: submission_type
+          in: query
+          description: Filter by submission type
+          schema:
+            $ref: '#/components/schemas/SubmissionType'
+        - name: database_name
+          in: query
+          description: Filter by database name
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          description: Filter by start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          description: Filter by end date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: search
+          in: query
+          description: Search in query content and comments
+          schema:
+            type: string
+        - name: requester_id
+          in: query
+          description: Filter by requester ID
+          schema:
+            type: string
+        - name: approver_id
+          in: query
+          description: Filter by approver ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequestsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - requires MANAGER or ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /requests/my-submissions:
+    get:
+      tags:
+        - Requests
+      summary: Get my submissions
+      description: Returns paginated list of requests submitted by the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page (default 10, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            $ref: '#/components/schemas/RequestStatus'
+        - name: search
+          in: query
+          description: Search in query content and comments
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of user's submissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequestsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /requests/{id}:
+    get:
+      tags:
+        - Requests
+      summary: Get request by ID
+      description: |
+        Returns a single request by ID. Users can only view their own requests or 
+        requests in their POD (for managers/admins).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Request ID
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Include additional data (e.g., 'execution' for execution details)
+          schema:
+            type: string
+            enum: [execution]
+      responses:
+        '200':
+          description: Request details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/QueryRequest'
+                  - type: object
+                    properties:
+                      execution:
+                        $ref: '#/components/schemas/QueryExecution'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags:
+        - Requests
+      summary: Approve or reject request
+      description: |
+        Update request status to APPROVED or REJECTED. Only MANAGER and ADMIN roles can perform this action.
+        When approving, the query/script is automatically executed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Request ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRequestStatusRequest'
+            examples:
+              approve:
+                summary: Approve request
+                value:
+                  status: APPROVED
+              reject:
+                summary: Reject request
+                value:
+                  status: REJECTED
+                  rejection_reason: Query needs optimization
+      responses:
+        '200':
+          description: Request updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryRequest'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - requires MANAGER or ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /requests/{id}/csv:
+    get:
+      tags:
+        - Requests
+      summary: Download full result as CSV
+      description: |
+        Downloads the full query result as a CSV file. Only available if the result was truncated 
+        and the CSV file hasn't expired (24 hours).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Request ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="result_123.csv"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found or CSV not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: CSV file has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /requests/{id}/execution:
+    get:
+      tags:
+        - Requests
+      summary: Get execution details
+      description: Returns execution details including CSV availability and expiration info.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Request ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request or execution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

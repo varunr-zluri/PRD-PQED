@@ -1,72 +1,106 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import Sidebar from '../Sidebar';
 
-// Mock navigate
+// Mock the navigate function
 const mockNavigate = jest.fn();
 const mockLogout = jest.fn();
 
-// Mock react-router-dom
+// Mock react-router-dom completely
 jest.mock('react-router-dom', () => ({
     NavLink: ({ children, to, className, style }) => {
         const isActive = to === '/';
-        const classResult = typeof className === 'function' ? className({ isActive }) : className;
-        const styleResult = typeof style === 'function' ? style({ isActive }) : style;
-        return <a href={to} className={classResult} style={styleResult} data-testid={`nav-${to}`}>{children}</a>;
+        const classStr = typeof className === 'function' ? className({ isActive }) : className;
+        const styleObj = typeof style === 'function' ? style({ isActive }) : style;
+
+        return (
+            <a
+                href={to}
+                className={classStr}
+                style={styleObj}
+                data-testid={`nav-${to.replace('/', '') || 'home'}`}
+            >
+                {children}
+            </a>
+        );
     },
     useNavigate: () => mockNavigate
 }));
 
-// Mock AuthContext
+// Mock the AuthContext with a changeable implementation
+let mockUser = {
+    id: 1,
+    name: 'Test User',
+    email: 'test@example.com',
+    username: 'testuser',
+    role: 'DEVELOPER'
+};
+
 jest.mock('../../contexts/AuthContext', () => ({
     useAuth: () => ({
-        user: { name: 'Test User', email: 'test@example.com', username: 'testuser', role: 'DEVELOPER' },
+        user: mockUser,
         logout: mockLogout
     })
 }));
 
+// Mock the logo
+jest.mock('../../assets/logo.svg', () => 'test-logo.svg');
+
+import Sidebar from '../Sidebar';
+
 describe('Sidebar', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        // Reset user to default
+        mockUser = {
+            id: 1,
+            name: 'Test User',
+            email: 'test@example.com',
+            username: 'testuser',
+            role: 'DEVELOPER'
+        };
     });
 
-    it('renders the Zluri SRE logo', () => {
+    it('renders logo', () => {
         render(<Sidebar />);
-
-        expect(screen.getByText('Z')).toBeInTheDocument();
-        expect(screen.getByText('Zluri SRE')).toBeInTheDocument();
+        expect(screen.getByAltText('Zluri')).toBeInTheDocument();
     });
 
-    it('renders user name', () => {
-        render(<Sidebar />);
-
-        expect(screen.getByText('Test User')).toBeInTheDocument();
-    });
-
-    it('renders username with @ prefix', () => {
-        render(<Sidebar />);
-
-        expect(screen.getByText('@testuser')).toBeInTheDocument();
-    });
-
-    it('renders Dashboard nav item', () => {
+    it('renders navigation items for developer', () => {
         render(<Sidebar />);
 
         expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    });
-
-    it('renders New Request for developers', () => {
-        render(<Sidebar />);
-
         expect(screen.getByText('New Request')).toBeInTheDocument();
+        expect(screen.getByText('My Submissions')).toBeInTheDocument();
+        // Approval Dashboard should be hidden for developers
+        expect(screen.queryByText('Approval Dashboard')).not.toBeInTheDocument();
     });
 
-    it('renders My Submissions for developers', () => {
+    it('renders navigation items for manager', () => {
+        mockUser = { ...mockUser, role: 'MANAGER' };
         render(<Sidebar />);
 
-        expect(screen.getByText('My Submissions')).toBeInTheDocument();
+        expect(screen.getByText('Approval Dashboard')).toBeInTheDocument();
     });
 
-    it('calls logout when logout button is clicked', () => {
+    it('renders user info with username', () => {
+        render(<Sidebar />);
+
+        expect(screen.getByText('Test User')).toBeInTheDocument();
+        expect(screen.getByText('@testuser')).toBeInTheDocument();
+    });
+
+    it('renders user info with email fallback', () => {
+        mockUser = { ...mockUser, username: null };
+        render(<Sidebar />);
+
+        expect(screen.getByText('test@example.com')).toBeInTheDocument();
+    });
+
+    it('renders logout button', () => {
+        render(<Sidebar />);
+        expect(screen.getByText('Logout')).toBeInTheDocument();
+    });
+
+    it('calls logout on button click', () => {
         render(<Sidebar />);
 
         const logoutButton = screen.getByText('Logout');
@@ -75,7 +109,7 @@ describe('Sidebar', () => {
         expect(mockLogout).toHaveBeenCalled();
     });
 
-    it('navigates to profile when user info is clicked', () => {
+    it('navigates to profile on user info click', () => {
         render(<Sidebar />);
 
         const userInfo = screen.getByText('Test User');
@@ -83,38 +117,27 @@ describe('Sidebar', () => {
 
         expect(mockNavigate).toHaveBeenCalledWith('/profile');
     });
-});
 
-describe('Sidebar - Manager View', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
-        // Re-mock with manager role
-        jest.doMock('../../contexts/AuthContext', () => ({
-            useAuth: () => ({
-                user: { name: 'Manager', email: 'manager@example.com', role: 'MANAGER' },
-                logout: mockLogout
-            })
-        }));
+    it('renders active nav item with correct styling', () => {
+        render(<Sidebar />);
+
+        // Dashboard is active because to="/" in mock maps to isActive=true
+        const dashboardLink = screen.getByTestId('nav-home');
+
+        expect(dashboardLink).toHaveClass('nav-item');
+        expect(dashboardLink).toHaveClass('active');
+        // Check background color which is set on active state
+        expect(dashboardLink).toHaveStyle({ backgroundColor: 'rgba(139, 92, 246, 0.1)' });
     });
 
-    it('shows Approval Dashboard for managers', () => {
-        // This test verifies the structure exists
+    it('renders inactive nav item with correct styling', () => {
         render(<Sidebar />);
-        expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    });
-});
 
-describe('Sidebar - User without username', () => {
-    it('shows email when username is not set', () => {
-        jest.doMock('../../contexts/AuthContext', () => ({
-            useAuth: () => ({
-                user: { name: 'No Username', email: 'nouser@example.com', username: null, role: 'DEVELOPER' },
-                logout: mockLogout
-            })
-        }));
+        // New Request is inactive
+        const requestLink = screen.getByTestId('nav-submit');
 
-        render(<Sidebar />);
-        // Falls back to current mock which has username
-        expect(screen.getByText('@testuser')).toBeInTheDocument();
+        expect(requestLink).toHaveClass('nav-item');
+        expect(requestLink).not.toHaveClass('active');
+        expect(requestLink).toHaveStyle({ backgroundColor: 'transparent' });
     });
 });

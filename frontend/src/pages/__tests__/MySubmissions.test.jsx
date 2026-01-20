@@ -113,6 +113,14 @@ describe('MySubmissions', () => {
         });
     });
 
+    it('renders submission type filter', async () => {
+        render(<MySubmissions />);
+
+        await waitFor(() => {
+            expect(screen.getByText('All Types')).toBeInTheDocument();
+        });
+    });
+
     it('handles filter change', async () => {
         render(<MySubmissions />);
 

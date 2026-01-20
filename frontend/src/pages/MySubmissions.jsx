@@ -18,6 +18,7 @@ const MySubmissions = () => {
     const [filters, setFilters] = useState({
         status: '',
         pod_name: '',
+        submission_type: '',
         search: '',
         start_date: '',
         end_date: ''
@@ -72,7 +73,22 @@ const MySubmissions = () => {
         });
     };
 
+    const RETENTION_DAYS = 30;
+
+    const isScriptExpired = (createdAt) => {
+        const created = new Date(createdAt);
+        const now = new Date();
+        const diffDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+        return diffDays > RETENTION_DAYS;
+    };
+
     const handleClone = (request) => {
+        // Check if script has expired (older than 30 days)
+        if (request.submission_type === 'SCRIPT' && isScriptExpired(request.created_at)) {
+            toast.warning('This script has expired and is no longer available for cloning. Scripts are retained for 30 days.');
+            return;
+        }
+
         // Navigate to submit page with pre-filled data
         sessionStorage.setItem('cloneRequest', JSON.stringify({
             instance_name: request.instance_name,
@@ -80,10 +96,13 @@ const MySubmissions = () => {
             submission_type: request.submission_type,
             query_content: request.query_content,
             comments: request.comments,
-            pod_name: request.pod_name
+            pod_name: request.pod_name,
+            script_path: request.script_path // Include original script URL for reference
         }));
         navigate('/submit');
-        toast.info('Query cloned. You can modify and resubmit.');
+        toast.info(request.submission_type === 'QUERY'
+            ? 'Query cloned. You can modify and resubmit.'
+            : 'Script request cloned. Please upload a new script file.');
     };
 
     const formatDate = (dateString) => {
@@ -137,6 +156,21 @@ const MySubmissions = () => {
                         {pods.map(pod => (
                             <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
                         ))}
+                    </select>
+                </div>
+
+                <div className="filter-group">
+                    <label className="label">Type</label>
+                    <select
+                        name="submission_type"
+                        className="select"
+                        value={filters.submission_type}
+                        onChange={handleFilterChange}
+                        style={{ minWidth: '120px' }}
+                    >
+                        <option value="">All Types</option>
+                        <option value="QUERY">Query</option>
+                        <option value="SCRIPT">Script</option>
                     </select>
                 </div>
 
@@ -239,7 +273,7 @@ const MySubmissions = () => {
                                                 >
                                                     <Eye size={16} />
                                                 </button>
-                                                {req.submission_type === 'QUERY' && (
+                                                {req.status !== 'FAILED' && (
                                                     <button
                                                         className="btn btn-icon btn-primary"
                                                         title="Clone & Resubmit"

@@ -1,5 +1,4 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Signup from '../Signup';
 
 const mockSignup = jest.fn();
 const mockNavigate = jest.fn();
@@ -15,6 +14,19 @@ jest.mock('../../contexts/AuthContext', () => ({
     })
 }));
 
+// Mock the logo import
+jest.mock('../../assets/logo.svg', () => 'test-logo.svg');
+
+// Mock react-toastify
+jest.mock('react-toastify', () => ({
+    toast: {
+        success: jest.fn(),
+        error: jest.fn()
+    }
+}));
+
+import Signup from '../Signup';
+
 describe('Signup', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -27,10 +39,10 @@ describe('Signup', () => {
         expect(screen.getByText('Join Zluri SRE Portal')).toBeInTheDocument();
     });
 
-    it('renders Z logo', () => {
+    it('renders Zluri logo', () => {
         render(<Signup />);
 
-        expect(screen.getByText('Z')).toBeInTheDocument();
+        expect(screen.getByAltText('Zluri')).toBeInTheDocument();
     });
 
     it('renders all form fields', () => {

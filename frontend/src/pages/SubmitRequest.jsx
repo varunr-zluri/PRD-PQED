@@ -25,6 +25,7 @@ const SubmitRequest = () => {
         pod_name: user?.pod_name || ''
     });
     const [scriptFile, setScriptFile] = useState(null);
+    const [clonedScriptUrl, setClonedScriptUrl] = useState(null); // For showing original script when cloning
 
     // Fetch instances on mount and check for clone data
     useEffect(() => {
@@ -45,6 +46,10 @@ const SubmitRequest = () => {
                         ...prev,
                         ...parsed
                     }));
+                    // Store cloned script URL for reference
+                    if (parsed.script_path) {
+                        setClonedScriptUrl(parsed.script_path);
+                    }
                     sessionStorage.removeItem('cloneRequest');
                 }
             } catch (error) {
@@ -154,6 +159,7 @@ const SubmitRequest = () => {
             pod_name: user?.pod_name || ''
         });
         setScriptFile(null);
+        setClonedScriptUrl(null);
         setDatabases([]);
     };
 
@@ -166,11 +172,12 @@ const SubmitRequest = () => {
 
             <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div className="card" style={{ flex: '1', minWidth: '400px' }}>
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit} data-testid="request-form">
                         <div className="form-row">
                             <div className="input-group">
-                                <label className="label">Instance Name *</label>
+                                <label className="label" htmlFor="instance_name">Instance Name *</label>
                                 <select
+                                    id="instance_name"
                                     name="instance_name"
                                     className="select"
                                     value={formData.instance_name}
@@ -187,8 +194,9 @@ const SubmitRequest = () => {
                             </div>
 
                             <div className="input-group">
-                                <label className="label">Database Name *</label>
+                                <label className="label" htmlFor="database_name">Database Name *</label>
                                 <select
+                                    id="database_name"
                                     name="database_name"
                                     className="select"
                                     value={formData.database_name}
@@ -207,8 +215,9 @@ const SubmitRequest = () => {
                         </div>
 
                         <div className="input-group">
-                            <label className="label">Comments *</label>
+                            <label className="label" htmlFor="comments">Comments *</label>
                             <textarea
+                                id="comments"
                                 name="comments"
                                 className="textarea"
                                 placeholder="Describe the purpose of this query..."
@@ -246,8 +255,9 @@ const SubmitRequest = () => {
 
                         {formData.submission_type === 'QUERY' ? (
                             <div className="input-group">
-                                <label className="label">SQL/MongoDB Query *</label>
+                                <label className="label" htmlFor="query_content">SQL/MongoDB Query *</label>
                                 <textarea
+                                    id="query_content"
                                     name="query_content"
                                     className="textarea"
                                     style={{ fontFamily: 'Monaco, Menlo, monospace', minHeight: '150px' }}
@@ -261,21 +271,51 @@ const SubmitRequest = () => {
                         ) : (
                             <div className="input-group">
                                 <label className="label">Upload Script *</label>
+                                {clonedScriptUrl && !scriptFile && (
+                                    <div style={{
+                                        padding: '12px',
+                                        marginBottom: '12px',
+                                        backgroundColor: '#f0f9ff',
+                                        border: '1px solid #0ea5e9',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px'
+                                    }}>
+                                        <span style={{ color: '#0369a1', fontSize: '0.9rem' }}>
+                                            📄 Cloned from previous script:
+                                        </span>
+                                        <a
+                                            href={clonedScriptUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#0ea5e9', fontWeight: 500 }}
+                                        >
+                                            Download Original
+                                        </a>
+                                    </div>
+                                )}
                                 <FileUpload
                                     file={scriptFile}
-                                    onFileSelect={setScriptFile}
+                                    onFileSelect={(file) => {
+                                        setScriptFile(file);
+                                        setClonedScriptUrl(null); // Clear reference when new file is selected
+                                    }}
                                     onClear={() => setScriptFile(null)}
                                 />
                                 <p className="text-sm text-gray" style={{ marginTop: '8px' }}>
-                                    Scripts run in a sandboxed environment. See example code →
+                                    {clonedScriptUrl && !scriptFile
+                                        ? 'Upload a new script or modify the original and re-upload.'
+                                        : 'Scripts run in a sandboxed environment. See example code →'}
                                 </p>
                             </div>
                         )}
 
                         {pods.length > 0 && (
                             <div className="input-group">
-                                <label className="label">POD Name</label>
+                                <label className="label" htmlFor="pod_name">POD Name</label>
                                 <select
+                                    id="pod_name"
                                     name="pod_name"
                                     className="select"
                                     value={formData.pod_name}

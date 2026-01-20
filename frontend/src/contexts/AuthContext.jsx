@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('Signup error:', error);
-            toast.error(error.response?.data?.message || 'Signup failed');
+            toast.error(error.response?.data?.error || 'Signup failed');
             return false;
         }
     }

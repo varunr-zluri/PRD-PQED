@@ -5,7 +5,7 @@ const config = require('../config/env');
 
 const generateToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role }, config.jwt.secret, {
-        expiresIn: '12h'
+        expiresIn: '1h'
     });
 };
 

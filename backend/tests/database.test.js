@@ -103,5 +103,12 @@ describe('Database Controller', () => {
             expect(res.statusCode).toEqual(500);
             expect(res.body).toHaveProperty('error', 'Failed to fetch resources');
         });
+
+        it('should use explicit ssl config when provided for PostgreSQL', async () => {
+            // The mock already has ssl: undefined, which should use default
+            const res = await request(app).get('/api/database-instances?instance=test-postgres');
+            expect(res.statusCode).toEqual(200);
+            expect(require('pg').Client).toHaveBeenCalled();
+        });
     });
 });

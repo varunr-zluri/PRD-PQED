@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getRequests, getPods } from '../api/client';
+import { getRequests } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
 import RequestDetailModal from '../components/RequestDetailModal';
@@ -9,13 +9,12 @@ import { Search, FileText, Eye, Inbox } from 'lucide-react';
 const ApprovalDashboard = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [pods, setPods] = useState([]);
     const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
     // Filters
     const [filters, setFilters] = useState({
         status: '',
-        pod_name: '',
+        submission_type: '',
         search: '',
         start_date: '',
         end_date: ''
@@ -40,17 +39,7 @@ const ApprovalDashboard = () => {
         fetchRequests();
     }, [fetchRequests]);
 
-    useEffect(() => {
-        const fetchPods = async () => {
-            try {
-                const podData = await getPods();
-                setPods(podData);
-            } catch (error) {
-                console.error('Failed to load pods');
-            }
-        };
-        fetchPods();
-    }, []);
+
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -113,18 +102,17 @@ const ApprovalDashboard = () => {
                 </div>
 
                 <div className="filter-group">
-                    <label className="label">POD</label>
+                    <label className="label">Type</label>
                     <select
-                        name="pod_name"
+                        name="submission_type"
                         className="select"
-                        value={filters.pod_name}
+                        value={filters.submission_type}
                         onChange={handleFilterChange}
                         style={{ minWidth: '120px' }}
                     >
-                        <option value="">All PODs</option>
-                        {pods.map(pod => (
-                            <option key={pod.pod_name} value={pod.pod_name}>{pod.display_name || pod.pod_name}</option>
-                        ))}
+                        <option value="">All Types</option>
+                        <option value="QUERY">Query</option>
+                        <option value="SCRIPT">Script</option>
                     </select>
                 </div>
 

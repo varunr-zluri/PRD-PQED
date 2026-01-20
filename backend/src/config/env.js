@@ -17,4 +17,5 @@ module.exports = {
     secret: process.env.JWT_SECRET || 'secret',
   },
   encKey: process.env.ENC_KEY,
+  frontendUrl: process.env.FRONTEND_URL || 'https://prd-pqed.vercel.app',
 };

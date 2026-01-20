@@ -1,12 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 
 // Mock the navigate function
 const mockNavigate = jest.fn();
 
 // Mock react-router-dom's useNavigate
 jest.mock('react-router-dom', () => ({
-    MemoryRouter: ({ children }) => children,
     Link: ({ children, to }) => <a href={to}>{children}</a>,
     useNavigate: () => mockNavigate
 }));
@@ -20,6 +18,17 @@ jest.mock('../../contexts/AuthContext', () => ({
         user: null,
         loading: false
     })
+}));
+
+// Mock the logo import
+jest.mock('../../assets/logo.svg', () => 'test-logo.svg');
+
+// Mock react-toastify
+jest.mock('react-toastify', () => ({
+    toast: {
+        success: jest.fn(),
+        error: jest.fn()
+    }
 }));
 
 // Import Login after mocks are set up
@@ -149,9 +158,9 @@ describe('Login', () => {
         });
     });
 
-    it('has Z logo', () => {
+    it('has Zluri logo', () => {
         render(<Login />);
 
-        expect(screen.getByText('Z')).toBeInTheDocument();
+        expect(screen.getByAltText('Zluri')).toBeInTheDocument();
     });
 });

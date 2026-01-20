@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute, ManagerRoute } from './components/RouteWrappers';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -11,43 +12,6 @@ import ApprovalDashboard from './pages/ApprovalDashboard';
 import MySubmissions from './pages/MySubmissions';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
-
-// Protected Route Wrapper
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        gap: '12px'
-      }}>
-        <span className="spinner" />
-        <span>Loading...</span>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  return children;
-};
-
-// Role-based route protection
-const ManagerRoute = ({ children }) => {
-  const { user } = useAuth();
-  if (user?.role !== 'MANAGER') {
-    return <Navigate to="/" />;
-  }
-  return children;
-};
-
-
 
 function App() {
   return (
@@ -89,4 +53,3 @@ function App() {
 }
 
 export default App;
-
