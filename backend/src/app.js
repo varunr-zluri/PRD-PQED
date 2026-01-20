@@ -9,7 +9,7 @@ const { ormMiddleware } = require('./config/database');
 const app = express();
 
 // Rate Limiters
-const globalLimiter = rateLimit({
+/*const globalLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10 minutes
     max: 200, // Limit each IP to 200 requests per windowMs
     standardHeaders: true,
@@ -21,7 +21,7 @@ const authLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10 minutes
     max: 10, // Limit each IP to 10 login/signup attempts per hour
     message: { error: 'Too many login attempts, please try again later.' }
-});
+});*/
 
 // Middleware
 app.use(helmet());
@@ -30,10 +30,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Apply global rate limiter
-app.use('/api', globalLimiter);
+//app.use('/api', globalLimiter);
 // Apply stricter limiter to auth routes specifically
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/signup', authLimiter);
+//app.use('/api/auth/login', authLimiter);
+//app.use('/api/auth/signup', authLimiter);
 
 // MikroORM request context middleware
 // Note: Middleware only works after ORM is initialized in server.js
