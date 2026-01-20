@@ -3,6 +3,7 @@ const { getEM } = require('../config/database');
 const executionService = require('../services/executionService');
 const slackService = require('../services/slackService');
 const { validateQuery } = require('../services/validateQuery');
+const { detectDestructiveOperations } = require('../services/destructiveDetector');
 const fs = require('fs'); // Keep for CSV check for now, though ephemeral
 const path = require('path');
 
@@ -163,6 +164,15 @@ const getRequestById = async (req, res) => {
                 result.script_filename = 'script.js'; // Default or extract from URL if needed
                 // We no longer embed script_content as it is a remote file
             }
+
+            // Detect destructive operations for PENDING requests (to warn managers)
+            if (r.status === 'PENDING') {
+                const contentToCheck = r.query_content || ''; // For scripts, we'd need to fetch content
+                const detection = detectDestructiveOperations(contentToCheck, r.db_type, r.submission_type);
+                result.is_destructive = detection.isDestructive;
+                result.destructive_warnings = detection.warnings;
+            }
+
             // Include executions if populated
             if (r.executions && r.executions.isInitialized()) {
                 result.executions = r.executions.getItems().map(e => {

@@ -15,6 +15,7 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
     const [downloadingCSV, setDownloadingCSV] = useState(false);
     const [scriptContent, setScriptContent] = useState(null);
     const [scriptLoading, setScriptLoading] = useState(false);
+    const [showDestructiveConfirm, setShowDestructiveConfirm] = useState(false);
 
     useEffect(() => {
         if (isOpen && requestId) {
@@ -25,6 +26,7 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
             setLoading(true);
             setShowRejectForm(false);
             setRejectionReason('');
+            setShowDestructiveConfirm(false);
         };
     }, [isOpen, requestId]);
 
@@ -55,6 +57,12 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
     };
 
     const handleApprove = async () => {
+        // Check if request has destructive operations and confirmation not yet shown
+        if (request?.is_destructive && !showDestructiveConfirm) {
+            setShowDestructiveConfirm(true);
+            return;
+        }
+
         setActionLoading(true);
         try {
             await approveRequest(requestId);
@@ -133,7 +141,7 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
                 </div>
             }
             footer={
-                showActions && request?.status === 'PENDING' && !showRejectForm ? (
+                showActions && request?.status === 'PENDING' && !showRejectForm && !showDestructiveConfirm ? (
                     <>
                         <button className="btn btn-secondary" onClick={onClose}>
                             Close
@@ -151,6 +159,19 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
                             disabled={actionLoading}
                         >
                             {actionLoading ? 'Processing...' : 'Approve'}
+                        </button>
+                    </>
+                ) : showDestructiveConfirm ? (
+                    <>
+                        <button className="btn btn-secondary" onClick={() => setShowDestructiveConfirm(false)}>
+                            Cancel
+                        </button>
+                        <button
+                            className="btn btn-danger"
+                            onClick={handleApprove}
+                            disabled={actionLoading}
+                        >
+                            {actionLoading ? 'Processing...' : 'Yes, Approve Anyway'}
                         </button>
                     </>
                 ) : showRejectForm ? (
@@ -178,6 +199,31 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
                 <div className="empty-state">
                     <AlertCircle size={48} />
                     <p>Request not found</p>
+                </div>
+            ) : showDestructiveConfirm ? (
+                <div className="destructive-warning">
+                    <div className="warning-banner" style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid var(--danger)',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        marginBottom: '16px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <AlertTriangle size={24} style={{ color: 'var(--danger)' }} />
+                            <strong style={{ color: 'var(--danger)', fontSize: '1.1rem' }}>⚠️ Destructive Operations Detected</strong>
+                        </div>
+                        <p style={{ marginBottom: '12px' }}>This request contains operations that may modify or delete data:</p>
+                        <ul style={{ margin: '0', paddingLeft: '20px' }}>
+                            {request.destructive_warnings?.map((warning, idx) => (
+                                <li key={idx} style={{ marginBottom: '4px', color: 'var(--text-secondary)' }}>{warning}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    <p style={{ fontWeight: '500' }}>Are you sure you want to approve this request?</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                        This action cannot be undone. The query/script will be executed immediately upon approval.
+                    </p>
                 </div>
             ) : showRejectForm ? (
                 <div>

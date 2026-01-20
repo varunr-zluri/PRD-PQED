@@ -11,6 +11,25 @@ const { scriptContent, env, scriptPath } = workerData;
 const logs = [];
 const errors = [];
 
+/**
+ * Safely serialize result for transfer to main thread.
+ * Worker threads can't clone MongoDB ObjectIds, Dates may have issues, etc.
+ * We JSON stringify and parse to ensure clean serialization.
+ */
+const safeSerialize = (obj) => {
+    try {
+        // JSON stringify converts ObjectId to string, handles circular refs, etc.
+        return JSON.parse(JSON.stringify(obj));
+    } catch (e) {
+        // If serialization fails, return error info
+        return {
+            _serializationError: true,
+            message: 'Result contains non-serializable data. Please ensure your script returns plain objects.',
+            originalError: e.message
+        };
+    }
+};
+
 try {
     const vm = new NodeVM({
         console: 'redirect',
@@ -34,7 +53,7 @@ try {
         result.then((asyncResult) => {
             parentPort.postMessage({
                 success: true,
-                result: asyncResult,
+                result: safeSerialize(asyncResult),
                 logs,
                 errors
             });
@@ -50,7 +69,7 @@ try {
         // Synchronous result
         parentPort.postMessage({
             success: true,
-            result,
+            result: safeSerialize(result),
             logs,
             errors
         });
