@@ -4,8 +4,6 @@ const executionService = require('../services/executionService');
 const slackService = require('../services/slackService');
 const { validateQuery } = require('../services/validateQuery');
 const { detectDestructiveOperations } = require('../services/destructiveDetector');
-const fs = require('fs'); // Keep for CSV check for now, though ephemeral
-const path = require('path');
 
 
 const submitRequest = async (req, res) => {
@@ -15,6 +13,7 @@ const submitRequest = async (req, res) => {
 
         const requestData = {
             requester: req.user,
+            requester_name: req.user.name, // Denormalized for search
             db_type,
             instance_name,
             database_name,
@@ -32,10 +31,13 @@ const submitRequest = async (req, res) => {
             }
             requestData.query_content = query_content;
         } else if (submission_type === 'SCRIPT') {
-            if (!req.file) {
+            if (req.file) {
+                requestData.script_path = req.file.path;
+            } else if (req.body.cloned_script_path) {
+                requestData.script_path = req.body.cloned_script_path;
+            } else {
                 return res.status(400).json({ error: 'Script file is required for SCRIPT submission' });
             }
-            requestData.script_path = req.file.path;
         }
 
         const request = em.create(QueryRequest, requestData);
@@ -79,8 +81,15 @@ const buildWhereClause = (query) => {
         };
     }
 
+    // Case-insensitive search across visible fields (denormalized - no JOINs needed)
     if (search) {
-        whereClause.query_content = { $like: `%${search}%` };
+        whereClause.$or = [
+            { query_content: { $ilike: `%${search}%` } },
+            { requester_name: { $ilike: `%${search}%` } },
+            { instance_name: { $ilike: `%${search}%` } },
+            { database_name: { $ilike: `%${search}%` } },
+            { comments: { $ilike: `%${search}%` } }
+        ];
     }
 
     return whereClause;
@@ -103,9 +112,8 @@ const getRequests = async (req, res) => {
             limit: parseInt(limit),
             offset: parseInt(offset)
         });
-        // Use toJSON for clean response
-        const requests = rows.map(r => r.toJSON());
 
+        const requests = rows.map(r => r.toJSON());
         res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -126,7 +134,6 @@ const getMySubmissions = async (req, res) => {
             offset: parseInt(offset)
         });
 
-        // Use toJSON for clean response
         const requests = rows.map(r => r.toJSON());
 
         res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
@@ -181,6 +188,7 @@ const getRequestById = async (req, res) => {
                         status: e.status,
                         result_data: e.result_data,
                         error_message: e.error_message,
+                        script_logs: e.script_logs,
                         executed_at: e.executed_at,
                         is_truncated: e.is_truncated,
                         total_rows: e.total_rows
@@ -195,7 +203,8 @@ const getRequestById = async (req, res) => {
                         if (e.result_file_path) {
                             if (new Date() > expiresAt) {
                                 csvExpired = true;
-                            } else if (fs.existsSync(e.result_file_path)) {
+                            } else {
+                                // Cloud file - available until expired
                                 csvAvailable = true;
                             }
                         }
@@ -268,11 +277,21 @@ const updateRequest = async (req, res) => {
 
             // Extract truncation metadata from result
             const resultData = executionResult.success ? executionResult.result : null;
+
+            // Combine stdout and stderr for script_logs
+            const scriptLogs = resultData?.logs?.length || resultData?.errors?.length
+                ? JSON.stringify({
+                    stdout: resultData.logs || [],
+                    stderr: resultData.errors || []
+                })
+                : null;
+
             const execution = em.create(QueryExecution, {
                 request: request,
                 status: executionStatus,
                 result_data: resultData ? JSON.stringify(resultData.rows || resultData.output) : null,
                 error_message: executionResult.success ? null : executionResult.error,
+                script_logs: scriptLogs,
                 executed_at: new Date(),
                 // Truncation metadata
                 is_truncated: resultData?.is_truncated || false,

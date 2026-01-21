@@ -1,20 +1,23 @@
 const { getEM } = require('../config/database');
 const { QueryExecution } = require('../entities/QueryExecution.entity');
+const axios = require('axios');
 
 const RETENTION_DAYS = 30;
 
-/**
- * Calculate expiry date from created_at
- */
 const getExpiryDate = (createdAt) => {
     return new Date(new Date(createdAt).getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
 };
 
 /**
- * Check if a path is a URL
+ * Verify cloud URL is accessible
  */
-const isUrl = (path) => {
-    return path && (path.startsWith('http://') || path.startsWith('https://'));
+const verifyCloudUrl = async (url) => {
+    try {
+        const response = await axios.head(url, { timeout: 5000 });
+        return response.status >= 200 && response.status < 300;
+    } catch (error) {
+        return false;
+    }
 };
 
 /**
@@ -55,28 +58,15 @@ const downloadCSV = async (req, res) => {
             });
         }
 
-        // If it's a cloud URL, redirect to it
-        if (isUrl(execution.result_file_path)) {
-            return res.redirect(execution.result_file_path);
-        }
-
-        // Fallback for legacy local files (unlikely in production)
-        const fs = require('fs');
-        const path = require('path');
-
-        if (!fs.existsSync(execution.result_file_path)) {
+        // Verify cloud URL exists before redirecting
+        const isAvailable = await verifyCloudUrl(execution.result_file_path);
+        if (!isAvailable) {
             return res.status(410).json({
-                message: 'Results file no longer available.',
-                reason: 'File has been cleared for storage purposes.'
+                message: 'File is no longer available.',
+                reason: 'The file may have been deleted from cloud storage.'
             });
         }
-
-        const filename = path.basename(execution.result_file_path);
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-        const fileStream = fs.createReadStream(execution.result_file_path);
-        fileStream.pipe(res);
+        return res.redirect(execution.result_file_path);
     } catch (error) {
         console.error('[CSV] Error:', error.message);
         res.status(500).json({ error: error.message });
@@ -106,13 +96,9 @@ const getExecutionDetails = async (req, res) => {
         if (execution.result_file_path) {
             if (expiresAt && new Date() > expiresAt) {
                 fileExpired = true;
-            } else if (isUrl(execution.result_file_path)) {
-                // Cloud URLs are always available (until expired)
-                fileAvailable = true;
             } else {
-                // Legacy local file check
-                const fs = require('fs');
-                fileAvailable = fs.existsSync(execution.result_file_path);
+                // Cloud file - available until expired
+                fileAvailable = true;
             }
         }
 
@@ -127,7 +113,7 @@ const getExecutionDetails = async (req, res) => {
             csv_available: fileAvailable,
             csv_expired: fileExpired,
             expires_at: expiresAt,
-            csv_url: isUrl(execution.result_file_path) ? execution.result_file_path : null
+            csv_url: execution.result_file_path || null
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

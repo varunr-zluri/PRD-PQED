@@ -7,7 +7,6 @@
  * 3. Isolate script execution from the main event loop
  */
 const { Worker } = require('worker_threads');
-const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { uploadString } = require('../utils/cloudStorage');
@@ -66,19 +65,12 @@ const executeScript = async (instance, databaseName, scriptPath) => {
 
     let scriptContent;
 
-    // Check if scriptPath is a URL (Cloudinary) or local path
-    if (scriptPath.startsWith('http')) {
-        try {
-            const response = await axios.get(scriptPath, { responseType: 'text' });
-            scriptContent = response.data;
-        } catch (error) {
-            throw new Error(`Failed to fetch script from URL: ${error.message}`);
-        }
-    } else {
-        if (!fs.existsSync(scriptPath)) {
-            throw new Error('Script file not found');
-        }
-        scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    // Fetch script from cloud URL
+    try {
+        const response = await axios.get(scriptPath, { responseType: 'text' });
+        scriptContent = response.data;
+    } catch (error) {
+        throw new Error(`Failed to fetch script: ${error.message}`);
     }
 
     // Execute in worker thread with timeout

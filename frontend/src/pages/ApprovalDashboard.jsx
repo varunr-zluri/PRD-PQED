@@ -55,6 +55,15 @@ const ApprovalDashboard = () => {
             if (name === 'end_date' && value && !prev.start_date) {
                 updated.start_date = '2020-01-01'; // Reasonable earliest date
             }
+            // Validate: start_date cannot be after end_date
+            if (name === 'start_date' && value && updated.end_date && value > updated.end_date) {
+                updated.end_date = value; // Auto-correct: set end_date to start_date
+                toast.warning('Start date cannot be after end date. End date adjusted.');
+            }
+            if (name === 'end_date' && value && updated.start_date && value < updated.start_date) {
+                updated.start_date = value; // Auto-correct: set start_date to end_date
+                toast.warning('End date cannot be before start date. Start date adjusted.');
+            }
             return updated;
         });
     };
@@ -204,7 +213,7 @@ const ApprovalDashboard = () => {
                                                 </span>
                                             )}
                                         </td>
-                                        <td>{req.requester?.email || '—'}</td>
+                                        <td>{req.requester?.name || '—'}</td>
                                         <td>{req.pod_name}</td>
                                         <td><StatusBadge status={req.status} /></td>
                                         <td className="text-sm">{formatDate(req.created_at)}</td>

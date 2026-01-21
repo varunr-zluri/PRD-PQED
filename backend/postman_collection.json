@@ -2,7 +2,7 @@
     "info": {
         "_postman_id": "9ea52033-286a-4b9e-bd41-11c5750033ad",
         "name": "Database Query Portal API",
-        "description": "API collection for the Database Query Portal with automatic token synchronization.",
+        "description": "Complete API collection for the Database Query Portal with automatic token synchronization.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {
@@ -44,7 +44,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"email\": \"dev@zluri.com\",\n    \"password\": \"password123\",\n    \"name\": \"Test Developer\",\n    \"pod_name\": \"pod-1\"\n}",
+                            "raw": "{\n    \"email\": \"testdev1@zluri.com\",\n    \"password\": \"test123\",\n    \"name\": \"Test Developer1\",\n    \"pod_name\": \"pod-1\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -65,7 +65,7 @@
                     "response": []
                 },
                 {
-                    "name": "Login",
+                    "name": "Login (Email)",
                     "event": [
                         {
                             "listen": "test",
@@ -94,7 +94,54 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"email\": \"dev@zluri.com\",\n    \"password\": \"password123\"\n}",
+                            "raw": "{\n    \"email\": \"testdev1@zluri.com\",\n    \"password\": \"test123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Login (Username)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.token) {",
+                                    "    pm.collectionVariables.set('token', jsonData.token);",
+                                    "}",
+                                    "if (jsonData.user && jsonData.user.id) {",
+                                    "    pm.collectionVariables.set('userId', jsonData.user.id.toString());",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"testdev1\",\n    \"password\": \"test123\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -133,6 +180,33 @@
                     "response": []
                 },
                 {
+                    "name": "Update Profile",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"testdev1\",\n    \"name\": \"testdev1update\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "profile"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Logout",
                     "event": [
                         {
@@ -160,85 +234,6 @@
                                 "logout"
                             ]
                         }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Login by Username",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "var jsonData = pm.response.json();",
-                                    "if (jsonData.token) {",
-                                    "    pm.collectionVariables.set('token', jsonData.token);",
-                                    "    pm.test('Token saved', function() {",
-                                    "        pm.expect(pm.collectionVariables.get('token')).to.not.be.empty;",
-                                    "    });",
-                                    "}",
-                                    "if (jsonData.user && jsonData.user.id) {",
-                                    "    pm.collectionVariables.set('userId', jsonData.user.id.toString());",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": {
-                            "type": "noauth"
-                        },
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"username\": \"testuser\",\n    \"password\": \"password123\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/login",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
-                        },
-                        "description": "Login using username instead of email"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Profile",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"username\": \"newusername\",\n    \"name\": \"Updated Name\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/profile",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "profile"
-                            ]
-                        },
-                        "description": "Update username, password, or name"
                     },
                     "response": []
                 }
@@ -285,8 +280,7 @@
                                     "description": "Instance name to get databases for"
                                 }
                             ]
-                        },
-                        "description": "Returns list of database names available in the specified instance"
+                        }
                     },
                     "response": []
                 }
@@ -339,6 +333,46 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"db_type\": \"POSTGRESQL\",\n    \"instance_name\": \"{{dbInstance}}\",\n    \"database_name\": \"{{dbName}}\",\n    \"submission_type\": \"QUERY\",\n    \"query_content\": \"SELECT * FROM users LIMIT 10;\",\n    \"pod_name\": \"{{podName}}\",\n    \"comments\": \"Test query request\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "requests"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Submit MongoDB Query",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.id) {",
+                                    "    pm.collectionVariables.set('requestId', jsonData.id.toString());",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"db_type\": \"MONGODB\",\n    \"instance_name\": \"mongodb-atlas\",\n    \"database_name\": \"sample_mflix\",\n    \"submission_type\": \"QUERY\",\n    \"query_content\": \"db.users.find({}).limit(10)\",\n    \"pod_name\": \"{{podName}}\",\n    \"comments\": \"Test MongoDB query\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -486,7 +520,8 @@
                                     "disabled": true
                                 }
                             ]
-                        }
+                        },
+                        "description": "List all requests. Admin sees all, Manager sees their POD only."
                     },
                     "response": []
                 },
@@ -524,7 +559,8 @@
                                     "disabled": true
                                 }
                             ]
-                        }
+                        },
+                        "description": "Get current user's submissions"
                     },
                     "response": []
                 },
@@ -542,7 +578,8 @@
                                 "requests",
                                 "{{requestId}}"
                             ]
-                        }
+                        },
+                        "description": "Returns request details with is_destructive and destructive_warnings for PENDING requests"
                     },
                     "response": []
                 },
@@ -569,7 +606,8 @@
                                 "requests",
                                 "{{requestId}}"
                             ]
-                        }
+                        },
+                        "description": "Manager/Admin approves request. Triggers immediate execution."
                     },
                     "response": []
                 },
@@ -596,32 +634,28 @@
                                 "requests",
                                 "{{requestId}}"
                             ]
-                        }
+                        },
+                        "description": "Manager/Admin rejects request with reason"
                     },
                     "response": []
                 },
                 {
-                    "name": "Get Request with Execution Details",
+                    "name": "Get Execution Details",
                     "request": {
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/requests/{{requestId}}?include=execution",
+                            "raw": "{{baseUrl}}/requests/{{requestId}}/execution",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "requests",
-                                "{{requestId}}"
-                            ],
-                            "query": [
-                                {
-                                    "key": "include",
-                                    "value": "execution"
-                                }
+                                "{{requestId}}",
+                                "execution"
                             ]
                         },
-                        "description": "Returns request with execution details including csv_available, csv_expired, expires_at"
+                        "description": "Returns execution details including csv_available, csv_expired, expires_at"
                     },
                     "response": []
                 },
@@ -642,6 +676,32 @@
                             ]
                         },
                         "description": "Downloads full result as CSV (only available if result was truncated)"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Health",
+            "item": [
+                {
+                    "name": "Ping",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/ping",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "ping"
+                            ]
+                        },
+                        "description": "Health check endpoint"
                     },
                     "response": []
                 }

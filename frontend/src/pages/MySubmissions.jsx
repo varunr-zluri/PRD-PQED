@@ -69,6 +69,15 @@ const MySubmissions = () => {
             if (name === 'end_date' && value && !prev.start_date) {
                 updated.start_date = '2020-10-01'; // Reasonable earliest date
             }
+            // Validate: start_date cannot be after end_date
+            if (name === 'start_date' && value && updated.end_date && value > updated.end_date) {
+                updated.end_date = value; // Auto-correct: set end_date to start_date
+                toast.warning('Start date cannot be after end date. End date adjusted.');
+            }
+            if (name === 'end_date' && value && updated.start_date && value < updated.start_date) {
+                updated.start_date = value; // Auto-correct: set start_date to end_date
+                toast.warning('End date cannot be before start date. Start date adjusted.');
+            }
             return updated;
         });
     };
@@ -83,10 +92,16 @@ const MySubmissions = () => {
     };
 
     const handleClone = (request) => {
-        // Check if script has expired (older than 30 days)
-        if (request.submission_type === 'SCRIPT' && isScriptExpired(request.created_at)) {
-            toast.warning('This script has expired and is no longer available for cloning. Scripts are retained for 30 days.');
-            return;
+        // For scripts: block failed/rejected, check expiration for others
+        if (request.submission_type === 'SCRIPT') {
+            if (request.status === 'FAILED' || request.status === 'REJECTED') {
+                toast.warning('Failed or rejected scripts cannot be cloned.');
+                return;
+            }
+            if (isScriptExpired(request.created_at)) {
+                toast.warning('This script has expired and is no longer available for cloning. Scripts are retained for 30 days.');
+                return;
+            }
         }
 
         // Navigate to submit page with pre-filled data
@@ -97,12 +112,12 @@ const MySubmissions = () => {
             query_content: request.query_content,
             comments: request.comments,
             pod_name: request.pod_name,
-            script_path: request.script_path // Include original script URL for reference
+            script_path: request.script_path // Include original script URL for reuse
         }));
         navigate('/submit');
         toast.info(request.submission_type === 'QUERY'
             ? 'Query cloned. You can modify and resubmit.'
-            : 'Script request cloned. Please upload a new script file.');
+            : 'Script cloned. The original script will be reused, or upload a new one.');
     };
 
     const formatDate = (dateString) => {
@@ -273,7 +288,8 @@ const MySubmissions = () => {
                                                 >
                                                     <Eye size={16} />
                                                 </button>
-                                                {req.status !== 'FAILED' && (
+                                                {/* Allow clone for: all queries, non-failed/rejected scripts */}
+                                                {(req.submission_type === 'QUERY' || (req.status !== 'FAILED' && req.status !== 'REJECTED')) && (
                                                     <button
                                                         className="btn btn-icon btn-primary"
                                                         title="Clone & Resubmit"

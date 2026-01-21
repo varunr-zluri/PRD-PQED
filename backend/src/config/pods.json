@@ -2,28 +2,23 @@
   "pods": [
     {
       "pod_name": "pod-1",
-      "display_name": "POD 1",
-      "manager_email": "testmanager1@zluri.com"
+      "display_name": "POD 1"
     },
     {
       "pod_name": "pod-2",
-      "display_name": "POD 2",
-      "manager_email": "testmanager2@zluri.com"
+      "display_name": "POD 2"
     },
     {
       "pod_name": "pod-3",
-      "display_name": "POD 3",
-      "manager_email": "testmanager3@zluri.com"
+      "display_name": "POD 3"
     },
     {
       "pod_name": "sre",
-      "display_name": "SRE",
-      "manager_email": "testsre-lead@zluri.com"
+      "display_name": "SRE"
     },
     {
       "pod_name": "de",
-      "display_name": "DE",
-      "manager_email": "testde-lead@zluri.com"
+      "display_name": "DE"
     }
   ]
 }

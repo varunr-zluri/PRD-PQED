@@ -13,6 +13,7 @@ class QueryExecution {
         this.status = undefined;
         this.result_data = undefined;
         this.error_message = undefined;
+        this.script_logs = undefined; // stdout/stderr from script execution
         this.executed_at = new Date();
         this.created_at = new Date();
         this.updated_at = new Date();
@@ -32,6 +33,7 @@ const QueryExecutionSchema = new EntitySchema({
         status: { type: 'string', enum: true, items: () => Object.values(ExecutionStatus) },
         result_data: { type: 'text', nullable: true },
         error_message: { type: 'text', nullable: true },
+        script_logs: { type: 'text', nullable: true }, // stdout/stderr from script execution
         executed_at: { type: 'Date', onCreate: () => new Date() },
         created_at: { type: 'Date', onCreate: () => new Date() },
         updated_at: { type: 'Date', onCreate: () => new Date(), onUpdate: () => new Date() },
@@ -43,5 +45,3 @@ const QueryExecutionSchema = new EntitySchema({
 });
 
 module.exports = { QueryExecution, QueryExecutionSchema, ExecutionStatus };
-
-

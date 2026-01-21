@@ -113,7 +113,7 @@ const SubmitRequest = () => {
             return;
         }
 
-        if (formData.submission_type === 'SCRIPT' && !scriptFile) {
+        if (formData.submission_type === 'SCRIPT' && !scriptFile && !clonedScriptUrl) {
             toast.error('Please upload a script file');
             return;
         }
@@ -136,7 +136,11 @@ const SubmitRequest = () => {
             if (formData.submission_type === 'QUERY') {
                 data.append('query_content', formData.query_content);
             } else {
-                data.append('script_file', scriptFile);
+                if (scriptFile) {
+                    data.append('script_file', scriptFile);
+                } else if (clonedScriptUrl) {
+                    data.append('cloned_script_path', clonedScriptUrl);
+                }
             }
 
             await submitRequest(data);
@@ -305,7 +309,7 @@ const SubmitRequest = () => {
                                 />
                                 <p className="text-sm text-gray" style={{ marginTop: '8px' }}>
                                     {clonedScriptUrl && !scriptFile
-                                        ? 'Upload a new script or modify the original and re-upload.'
+                                        ? 'You can submit with the original script or upload a new one to replace it.'
                                         : 'Scripts run in a sandboxed environment. See example code →'}
                                 </p>
                             </div>

@@ -31,6 +31,7 @@ class QueryRequest {
         this.id = undefined;
         this.requester = undefined;
         this.requester_id = undefined;
+        this.requester_name = undefined; // Denormalized for search
         this.db_type = undefined;
         this.instance_name = undefined;
         this.database_name = undefined;
@@ -49,7 +50,7 @@ class QueryRequest {
         this.executions = new Collection(this);
     }
 
-    // Clean JSON output - exclude internal fields
+    // Clean JSON output - only essential fields
     toJSON() {
         return {
             id: this.id,
@@ -58,17 +59,16 @@ class QueryRequest {
             database_name: this.database_name,
             submission_type: this.submission_type,
             query_content: this.query_content,
-            script_path: this.script_path, // Added for frontend to fetch script content
+            script_path: this.script_path,
             comments: this.comments,
             pod_name: this.pod_name,
             status: this.status,
             approved_at: this.approved_at,
             rejected_reason: this.rejected_reason,
             created_at: this.created_at,
-            updated_at: this.updated_at,
-            // Flatten requester/approver to essential fields
-            requester: this.requester ? { id: this.requester.id, name: this.requester.name, email: this.requester.email } : null,
-            approver: this.approver ? { id: this.approver.id, name: this.approver.name, email: this.approver.email } : null
+            // Flatten requester/approver to essential fields only
+            requester: this.requester ? { id: this.requester.id, name: this.requester.name } : null,
+            approver: this.approver ? { id: this.approver.id, name: this.approver.name } : null
         };
     }
 }
@@ -79,6 +79,7 @@ const QueryRequestSchema = new EntitySchema({
     properties: {
         id: { type: 'number', primary: true, autoincrement: true },
         requester: { kind: 'm:1', entity: () => require('./User.entity').User, fieldName: 'requester_id' },
+        requester_name: { type: 'string', nullable: true }, // Denormalized for search
         db_type: { type: 'string', enum: true, items: () => Object.values(DbType) },
         instance_name: { type: 'string' },
         database_name: { type: 'string' },

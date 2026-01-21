@@ -16,6 +16,7 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
     const [scriptContent, setScriptContent] = useState(null);
     const [scriptLoading, setScriptLoading] = useState(false);
     const [showDestructiveConfirm, setShowDestructiveConfirm] = useState(false);
+    const [activeExecTab, setActiveExecTab] = useState('results'); // 'results' or 'logs'
 
     useEffect(() => {
         if (isOpen && requestId) {
@@ -324,47 +325,132 @@ const RequestDetailModal = ({ requestId, isOpen, onClose, onActionComplete, show
                         <div className="detail-section">
                             <div className="detail-section-header">
                                 <CheckCircle size={16} />
-                                <span>Execution Results</span>
+                                <span>Execution Output</span>
                             </div>
-                            {request.executions.map((exec, index) => (
-                                <div key={exec.id || index} className={`execution-result ${exec.status === 'SUCCESS' ? 'success' : 'failure'}`}>
-                                    <div className="execution-header">
-                                        <StatusBadge status={exec.status} />
-                                        <span className="text-sm">{formatDate(exec.executed_at)}</span>
-                                    </div>
+                            {request.executions.map((exec, index) => {
+                                // Parse script_logs if available
+                                let parsedLogs = null;
+                                if (exec.script_logs) {
+                                    try {
+                                        parsedLogs = JSON.parse(exec.script_logs);
+                                    } catch (e) {
+                                        parsedLogs = { stdout: [], stderr: [] };
+                                    }
+                                }
+                                const hasLogs = parsedLogs && (parsedLogs.stdout?.length > 0 || parsedLogs.stderr?.length > 0);
 
-                                    {/* Truncation Warning */}
-                                    {exec.is_truncated && (
-                                        <div className="truncation-warning">
-                                            <AlertTriangle size={16} />
-                                            <span>
-                                                Showing 100 of {exec.total_rows} rows.
+                                return (
+                                    <div key={exec.id || index} className={`execution-result ${exec.status === 'SUCCESS' ? 'success' : 'failure'}`}>
+                                        <div className="execution-header">
+                                            <StatusBadge status={exec.status} />
+                                            <span className="text-sm">{formatDate(exec.executed_at)}</span>
+                                        </div>
+
+                                        {/* Truncation Warning */}
+                                        {exec.is_truncated && (
+                                            <div className="truncation-warning">
+                                                <AlertTriangle size={16} />
+                                                <span>
+                                                    Showing 100 of {exec.total_rows} rows.
+                                                    <button
+                                                        className="btn-link"
+                                                        onClick={handleDownloadCSV}
+                                                        disabled={downloadingCSV}
+                                                        style={{ marginLeft: '8px' }}
+                                                    >
+                                                        <Download size={14} />
+                                                        {downloadingCSV ? 'Downloading...' : 'Download Full CSV'}
+                                                    </button>
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Tabs - only show if there are logs */}
+                                        {hasLogs && (
+                                            <div className="exec-tabs" style={{
+                                                display: 'flex',
+                                                borderBottom: '1px solid var(--border-color)',
+                                                marginBottom: '12px',
+                                                gap: '0'
+                                            }}>
                                                 <button
-                                                    className="btn-link"
-                                                    onClick={handleDownloadCSV}
-                                                    disabled={downloadingCSV}
-                                                    style={{ marginLeft: '8px' }}
+                                                    className={`exec-tab ${activeExecTab === 'results' ? 'active' : ''}`}
+                                                    onClick={() => setActiveExecTab('results')}
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        border: 'none',
+                                                        background: activeExecTab === 'results' ? 'var(--bg-secondary)' : 'transparent',
+                                                        borderBottom: activeExecTab === 'results' ? '2px solid var(--primary)' : '2px solid transparent',
+                                                        cursor: 'pointer',
+                                                        fontWeight: activeExecTab === 'results' ? '600' : '400',
+                                                        color: activeExecTab === 'results' ? 'var(--primary)' : 'var(--text-muted)',
+                                                        fontSize: '0.9rem'
+                                                    }}
                                                 >
-                                                    <Download size={14} />
-                                                    {downloadingCSV ? 'Downloading...' : 'Download Full CSV'}
+                                                    Results
                                                 </button>
-                                            </span>
-                                        </div>
-                                    )}
+                                                <button
+                                                    className={`exec-tab ${activeExecTab === 'logs' ? 'active' : ''}`}
+                                                    onClick={() => setActiveExecTab('logs')}
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        border: 'none',
+                                                        background: activeExecTab === 'logs' ? 'var(--bg-secondary)' : 'transparent',
+                                                        borderBottom: activeExecTab === 'logs' ? '2px solid var(--primary)' : '2px solid transparent',
+                                                        cursor: 'pointer',
+                                                        fontWeight: activeExecTab === 'logs' ? '600' : '400',
+                                                        color: activeExecTab === 'logs' ? 'var(--primary)' : 'var(--text-muted)',
+                                                        fontSize: '0.9rem'
+                                                    }}
+                                                >
+                                                    Console Logs
+                                                </button>
+                                            </div>
+                                        )}
 
-                                    {exec.result_data && (
-                                        <pre className="code-block code-block-sm">
-                                            <code>{typeof exec.result_data === 'string' ? exec.result_data : JSON.stringify(exec.result_data, null, 2)}</code>
-                                        </pre>
-                                    )}
-                                    {exec.error_message && (
-                                        <div className="execution-error">
-                                            <AlertCircle size={14} />
-                                            <span>{exec.error_message}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                        {/* Results Tab Content */}
+                                        {(activeExecTab === 'results' || !hasLogs) && exec.result_data && (
+                                            <pre className="code-block code-block-sm">
+                                                <code>{typeof exec.result_data === 'string' ? exec.result_data : JSON.stringify(exec.result_data, null, 2)}</code>
+                                            </pre>
+                                        )}
+
+                                        {/* Console Logs Tab Content */}
+                                        {activeExecTab === 'logs' && hasLogs && (
+                                            <div className="console-logs" style={{
+                                                background: '#1e1e1e',
+                                                borderRadius: '8px',
+                                                padding: '12px',
+                                                fontFamily: 'Monaco, Menlo, Consolas, monospace',
+                                                fontSize: '0.85rem',
+                                                maxHeight: '300px',
+                                                overflowY: 'auto'
+                                            }}>
+                                                {parsedLogs.stdout?.map((log, i) => (
+                                                    <div key={`stdout-${i}`} style={{ color: '#d4d4d4', marginBottom: '4px' }}>
+                                                        <span style={{ color: '#6a9955' }}>[LOG]</span> {log}
+                                                    </div>
+                                                ))}
+                                                {parsedLogs.stderr?.map((err, i) => (
+                                                    <div key={`stderr-${i}`} style={{ color: '#f14c4c', marginBottom: '4px' }}>
+                                                        <span style={{ color: '#ce9178' }}>[ERR]</span> {err}
+                                                    </div>
+                                                ))}
+                                                {parsedLogs.stdout?.length === 0 && parsedLogs.stderr?.length === 0 && (
+                                                    <div style={{ color: '#808080', fontStyle: 'italic' }}>No console output</div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {exec.error_message && (
+                                            <div className="execution-error">
+                                                <AlertCircle size={14} />
+                                                <span>{exec.error_message}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

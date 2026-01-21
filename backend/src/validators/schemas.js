@@ -44,7 +44,8 @@ const submitRequestSchema = z.object({
     comments: z.string().optional(),
     pod_name: z.string().refine(val => !val || validPodNames.includes(val), {
         message: `pod_name must be one of: ${validPodNames.join(', ')}`
-    }).optional()
+    }).optional(),
+    cloned_script_path: z.string().url('cloned_script_path must be a valid URL').optional()
 }).refine(
     (data) => data.submission_type !== 'QUERY' || (data.query_content && data.query_content.trim().length > 0),
     { message: 'Query content is required for QUERY submission', path: ['query_content'] }
@@ -78,7 +79,15 @@ const requestFiltersSchema = paginationSchema.extend({
     search: z.string().optional(),
     requester_id: z.string().optional(),
     approver_id: z.string().optional()
-});
+}).refine(
+    (data) => {
+        if (data.start_date && data.end_date) {
+            return new Date(data.start_date) <= new Date(data.end_date);
+        }
+        return true;
+    },
+    { message: 'start_date cannot be after end_date', path: ['start_date'] }
+);
 
 module.exports = {
     loginSchema,

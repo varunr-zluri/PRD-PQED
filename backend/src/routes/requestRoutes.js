@@ -3,12 +3,12 @@ const router = express.Router();
 const requestController = require('../controllers/requestController');
 const csvController = require('../controllers/csvController');
 const auth = require('../middleware/auth');
-const upload = require('../utils/fileUpload');
+const { handleScriptUpload } = require('../middleware/uploadHandler');
 const { requireRole, requireListAccess } = require('../middleware/rbac');
 const { validateBody, validateQuery, submitRequestSchema, updateRequestSchema, requestFiltersSchema } = require('../validators');
 
 // Submit request - all authenticated users
-router.post('/', auth, upload.single('script_file'), validateBody(submitRequestSchema), requestController.submitRequest);
+router.post('/', auth, handleScriptUpload, validateBody(submitRequestSchema), requestController.submitRequest);
 
 // List all requests - ADMIN (all), MANAGER (their POD only)
 router.get('/', auth, requireListAccess, validateQuery(requestFiltersSchema), requestController.getRequests);
