@@ -55,8 +55,10 @@ const TestComponent = () => {
 
 describe('AuthContext', () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+        jest.resetAllMocks();
         localStorage.clear();
+        api.get.mockResolvedValue({ data: {} }); // Default mock
+        api.post.mockResolvedValue({ data: {} }); // Default mock
     });
 
     it('handles login success', async () => {
@@ -113,5 +115,47 @@ describe('AuthContext', () => {
 
         await act(async () => screen.getByText('Logout').click());
         expect(toast.info).toHaveBeenCalledWith('Logged out');
+    });
+
+    it('handles auth check failure', async () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+        const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+        // Mock token in localStorage
+        localStorage.setItem('token', 'invalid-token');
+
+        // Mock API failure
+        api.get.mockRejectedValueOnce(new Error('Auth failed'));
+
+        render(<AuthProvider><TestComponent /></AuthProvider>);
+
+        // Should try to check auth
+        await waitFor(() => expect(api.get).toHaveBeenCalledWith('/auth/me'));
+
+        // Should enter catch block, log error, and remove token
+        await waitFor(() => {
+            expect(consoleSpy).toHaveBeenCalledWith('Auth check failed:', expect.any(Error));
+            expect(removeItemSpy).toHaveBeenCalledWith('token');
+            expect(localStorage.getItem('token')).toBeNull();
+        });
+
+        consoleSpy.mockRestore();
+        removeItemSpy.mockRestore();
+    });
+
+    it('handles signup failure', async () => {
+        api.get.mockResolvedValueOnce({ data: null });
+        api.post.mockRejectedValueOnce({
+            response: { data: { error: 'Signup failed reason' } }
+        });
+
+        render(<AuthProvider><TestComponent /></AuthProvider>);
+        await waitFor(() => screen.getByTestId('user'));
+
+        await act(async () => screen.getByText('Signup').click());
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith('Signup failed reason');
+        });
     });
 });

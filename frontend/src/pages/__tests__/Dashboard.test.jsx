@@ -132,4 +132,46 @@ describe('Dashboard - Manager View', () => {
 
         expect(mockNavigate).toHaveBeenCalledWith('/approvals');
     });
+
+    it('renders all actions for managers (including developer actions)', () => {
+        render(<Dashboard />);
+
+        expect(screen.getByText('Submit New Request')).toBeInTheDocument();
+        expect(screen.getByText('My Submissions')).toBeInTheDocument();
+        expect(screen.getByText('Approval Dashboard')).toBeInTheDocument();
+    });
+});
+
+describe('Dashboard - Edge Cases', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('renders default values when user info is missing', () => {
+        // Override mock for this specific test
+        const emptyUser = {};
+        jest.spyOn(require('../../contexts/AuthContext'), 'useAuth').mockImplementation(() => ({
+            user: emptyUser
+        }));
+
+        render(<Dashboard />);
+
+        expect(screen.getByText('Welcome, User')).toBeInTheDocument();
+        const profileCard = screen.getByText('Your Profile').closest('.card');
+
+        // Check for dashes in profile section
+        const values = screen.getAllByText('—');
+        expect(values.length).toBeGreaterThanOrEqual(4); // Name, Email, Role, Pod
+    });
+
+    it('does not show manager actions for developers', () => {
+        const devUser = { role: 'DEVELOPER' };
+        jest.spyOn(require('../../contexts/AuthContext'), 'useAuth').mockImplementation(() => ({
+            user: devUser
+        }));
+
+        render(<Dashboard />);
+
+        expect(screen.queryByText('Approval Dashboard')).not.toBeInTheDocument();
+    });
 });

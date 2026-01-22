@@ -4,9 +4,19 @@
  */
 
 const request = require('supertest');
-const app = require('../src/app');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+
+jest.mock('axios');
+
+// Mock slack service to prevent WebClient initialization error
+jest.mock('../src/services/slackService', () => ({
+    sendApprovalNotification: jest.fn().mockResolvedValue(true),
+    sendExecutionNotification: jest.fn().mockResolvedValue(true)
+}));
+
+const app = require('../src/app');
 
 // Mock database
 jest.mock('../src/config/database', () => ({
@@ -113,32 +123,22 @@ describe('CSV Controller', () => {
             expect(res.body.message).toContain('no longer available');
         });
 
-        it('should stream CSV file when all conditions met', async () => {
-            // Create temp CSV file
-            const tempDir = path.join(__dirname, '../uploads/csv');
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-            const tempFile = path.join(tempDir, 'test-download.csv');
-            fs.writeFileSync(tempFile, 'id,name\n1,Test\n');
+        it('should redirect to cloud URL when all conditions met', async () => {
+            const cloudUrl = 'https://res.cloudinary.com/demo/test-download.csv';
 
-            try {
-                mockEM.findOne.mockResolvedValue({
-                    is_truncated: true,
-                    result_file_path: tempFile,
-                    created_at: new Date()
-                });
+            mockEM.findOne.mockResolvedValue({
+                is_truncated: true,
+                result_file_path: cloudUrl,
+                created_at: new Date()
+            });
 
-                const res = await request(app).get('/api/requests/1/csv');
+            // Mock axios.head to verify cloud URL is available
+            axios.head.mockResolvedValue({ status: 200 });
 
-                expect(res.statusCode).toEqual(200);
-                expect(res.headers['content-type']).toContain('text/csv');
-            } finally {
-                // Cleanup
-                if (fs.existsSync(tempFile)) {
-                    fs.unlinkSync(tempFile);
-                }
-            }
+            const res = await request(app).get('/api/requests/1/csv');
+
+            expect(res.statusCode).toEqual(302); // Redirect status
+            expect(res.headers['location']).toBe(cloudUrl);
         });
     });
 
@@ -268,7 +268,8 @@ describe('CSV Controller', () => {
             expect(res.body.csv_available).toBe(false);
         });
 
-        it('should return csv_available false when file does not exist', async () => {
+        it('should return csv_available true when cloud file path exists and not expired', async () => {
+            // Cloud storage logic: if result_file_path exists and not expired, csv_available is true
             const mockExecution = {
                 id: 1,
                 status: 'SUCCESS',
@@ -276,7 +277,7 @@ describe('CSV Controller', () => {
                 is_truncated: true,
                 total_rows: 150,
                 result_data: [{ id: 1 }],
-                result_file_path: '/nonexistent/file.csv',
+                result_file_path: 'https://res.cloudinary.com/demo/result.csv',
                 created_at: new Date(),
                 error_message: null
             };
@@ -286,7 +287,7 @@ describe('CSV Controller', () => {
             const res = await request(app).get('/api/requests/1/execution');
 
             expect(res.statusCode).toEqual(200);
-            expect(res.body.csv_available).toBe(false);
+            expect(res.body.csv_available).toBe(true);
         });
 
         it('should return null expires_at for non-truncated results', async () => {

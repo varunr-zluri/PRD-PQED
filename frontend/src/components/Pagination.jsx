@@ -27,6 +27,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
                 className="pagination-btn"
                 disabled={currentPage === 1}
                 onClick={() => onPageChange(currentPage - 1)}
+                aria-label="Previous Page"
             >
                 <ChevronLeft size={18} />
             </button>
@@ -36,6 +37,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
                     key={page}
                     className={`pagination-btn ${page === currentPage ? 'active' : ''}`}
                     onClick={() => onPageChange(page)}
+                    aria-label={`Page ${page}`}
                 >
                     {page}
                 </button>
@@ -45,6 +47,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
                 className="pagination-btn"
                 disabled={currentPage === totalPages}
                 onClick={() => onPageChange(currentPage + 1)}
+                aria-label="Next Page"
             >
                 <ChevronRight size={18} />
             </button>

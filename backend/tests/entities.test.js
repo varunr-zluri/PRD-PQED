@@ -96,6 +96,45 @@ describe('Entity Classes', () => {
             expect(RequestStatus.EXECUTED).toBe('EXECUTED');
             expect(RequestStatus.FAILED).toBe('FAILED');
         });
+
+        it('should have correct toJSON output with null approver (line 55)', () => {
+            const request = new QueryRequest();
+            request.id = 1;
+            request.db_type = DbType.POSTGRESQL;
+            request.instance_name = 'postgres-prod';
+            request.database_name = 'testdb';
+            request.submission_type = SubmissionType.QUERY;
+            request.query_content = 'SELECT 1';
+            request.pod_name = 'pod-1';
+            request.requester = null; // No requester
+            request.approver = null; // No approver
+
+            const json = request.toJSON();
+
+            expect(json.id).toBe(1);
+            expect(json.db_type).toBe(DbType.POSTGRESQL);
+            expect(json.requester).toBeNull();
+            expect(json.approver).toBeNull();
+        });
+
+        it('should have correct toJSON output with populated approver', () => {
+            const request = new QueryRequest();
+            request.id = 2;
+            request.db_type = DbType.MONGODB;
+            request.instance_name = 'mongo-prod';
+            request.database_name = 'orders';
+            request.submission_type = SubmissionType.SCRIPT;
+            request.script_path = 'http://example.com/script.js';
+            request.pod_name = 'sre';
+            request.requester = { id: 1, name: 'Developer' };
+            request.approver = { id: 2, name: 'Manager' };
+
+            const json = request.toJSON();
+
+            expect(json.id).toBe(2);
+            expect(json.requester).toEqual({ id: 1, name: 'Developer' });
+            expect(json.approver).toEqual({ id: 2, name: 'Manager' });
+        });
     });
 
     describe('QueryExecution Entity', () => {

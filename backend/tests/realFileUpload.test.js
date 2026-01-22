@@ -33,6 +33,19 @@ jest.mock('../src/validators', () => ({
     requestFiltersSchema: {}
 }));
 
+// Mock slack service to prevent WebClient initialization error
+jest.mock('../src/services/slackService', () => ({
+    sendApprovalNotification: jest.fn().mockResolvedValue(true),
+    sendExecutionNotification: jest.fn().mockResolvedValue(true),
+    notifyNewSubmission: jest.fn().mockResolvedValue(true)
+}));
+
+// Mock cloud storage for script upload
+jest.mock('../src/utils/cloudStorage', () => ({
+    uploadFile: jest.fn().mockResolvedValue('https://res.cloudinary.com/demo/test.js'),
+    uploadString: jest.fn().mockResolvedValue('https://res.cloudinary.com/demo/result.csv')
+}));
+
 const app = require('../src/app');
 
 describe('Real File Upload Tests', () => {
@@ -76,7 +89,11 @@ describe('Real File Upload Tests', () => {
         mockEM = {
             findOne: jest.fn(),
             findAndCount: jest.fn(),
-            create: jest.fn((Entity, data) => data),
+            create: jest.fn((Entity, data) => ({
+                ...data,
+                id: 1,
+                toJSON: function () { return { ...this }; }
+            })),
             persistAndFlush: jest.fn().mockResolvedValue(undefined),
             flush: jest.fn()
         };
@@ -92,10 +109,10 @@ describe('Real File Upload Tests', () => {
                 .field('database_name', 'testdb')
                 .field('submission_type', 'SCRIPT')
                 .field('pod_name', 'POD_1')
-                .attach('script', testScriptPath);
+                .attach('script_file', testScriptPath);
 
-            // In test environment, multer may have issues - accept 201 or 500
-            expect([201, 500]).toContain(res.statusCode);
+            // Valid JS file should be accepted, expect 201 Created
+            expect(res.statusCode).toBe(201);
         });
 
         it('should reject non-JavaScript file', async () => {
@@ -105,10 +122,10 @@ describe('Real File Upload Tests', () => {
                 .field('instance_name', 'test-db')
                 .field('database_name', 'testdb')
                 .field('submission_type', 'SCRIPT')
-                .attach('script', testNonJsPath);
+                .attach('script_file', testNonJsPath);
 
-            // Multer should reject the file
-            expect(res.statusCode).toBe(500); // Multer error
+            // Multer should reject the file with 400 Bad Request
+            expect(res.statusCode).toBe(400);
         });
     });
 
@@ -122,9 +139,9 @@ describe('Real File Upload Tests', () => {
                 .field('database_name', 'testdb')
                 .field('submission_type', 'SCRIPT')
                 .field('pod_name', 'POD_1')
-                .attach('script', testScriptPath);
-            // In test environment, multer may have issues - accept 201 or 500
-            expect([201, 500]).toContain(res.statusCode);
+                .attach('script_file', testScriptPath);
+            // Valid JS file should be accepted, expect 201 Created
+            expect(res.statusCode).toBe(201);
         });
     });
 });

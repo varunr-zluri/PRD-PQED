@@ -126,8 +126,9 @@ const ApprovalDashboard = () => {
                 </div>
 
                 <div className="filter-group">
-                    <label className="label">Start Date</label>
+                    <label className="label" htmlFor="start_date">Start Date</label>
                     <input
+                        id="start_date"
                         type="date"
                         name="start_date"
                         className="input"
@@ -138,8 +139,9 @@ const ApprovalDashboard = () => {
                 </div>
 
                 <div className="filter-group">
-                    <label className="label">End Date</label>
+                    <label className="label" htmlFor="end_date">End Date</label>
                     <input
+                        id="end_date"
                         type="date"
                         name="end_date"
                         className="input"

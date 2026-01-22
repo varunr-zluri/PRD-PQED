@@ -147,6 +147,27 @@ describe('Slack Service', () => {
                 slackService.notifyNewSubmission(mockRequest, mockRequester, null)
             ).resolves.not.toThrow();
         });
+
+        it('should handle channel notification failure (line 68)', async () => {
+            // First call (channel notification) fails, subsequent calls succeed
+            mockPostMessage
+                .mockRejectedValueOnce(new Error('channel_not_found'))
+                .mockResolvedValue({ ok: true });
+
+            const mockRequest = {
+                instance_name: 'test-db',
+                db_type: 'POSTGRESQL',
+                pod_name: 'POD_1',
+                submission_type: 'QUERY',
+                query_content: 'SELECT 1'
+            };
+            const mockRequester = { name: 'Test User', email: 'test@example.com' };
+
+            // Should not throw even when channel notification fails
+            await expect(
+                slackService.notifyNewSubmission(mockRequest, mockRequester, null)
+            ).resolves.not.toThrow();
+        });
     });
 
     describe('notifyApprovalResult', () => {
@@ -195,6 +216,66 @@ describe('Slack Service', () => {
             await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
             expect(mockPostMessage).toHaveBeenCalled();
         });
+
+        it('should handle channel notification failure in approval (line 125)', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
+            // First call (channel notification) fails, subsequent calls succeed
+            mockPostMessage
+                .mockRejectedValueOnce(new Error('channel_not_found'))
+                .mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { name: 'Manager', email: 'manager@example.com' };
+            const executionResult = { success: true, result: [{ id: 1 }] };
+
+            // Should not throw even when channel notification fails
+            await expect(
+                slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com')
+            ).resolves.not.toThrow();
+        });
+
+        it('should skip requester DM when requester not found (lines 143-157)', async () => {
+            // Requester not found, approver found
+            mockLookupByEmail
+                .mockResolvedValueOnce(null) // requester lookup returns null
+                .mockResolvedValue({ user: { id: 'U789' } }); // approver lookup
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { name: 'Manager', email: 'manager@example.com' };
+            const executionResult = { success: true, result: [{ id: 1 }] };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            // Only channel + approver DM (not requester)
+            expect(mockLookupByEmail).toHaveBeenCalledTimes(2);
+        });
+
+        it('should skip approver DM when approver not found (lines 160-176)', async () => {
+            mockLookupByEmail
+                .mockResolvedValueOnce({ user: { id: 'U123' } }) // requester found
+                .mockResolvedValueOnce(null); // approver not found
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { name: 'Manager', email: 'manager@example.com' };
+            const executionResult = { success: true, result: [{ id: 1 }] };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            expect(mockLookupByEmail).toHaveBeenCalledTimes(2);
+        });
+
+        it('should skip approver DM when approver has no email', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U123' } });
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { name: 'Manager' }; // No email
+            const executionResult = { success: true, result: [{ id: 1 }] };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            // Only requester lookup (not approver since no email)
+            expect(mockLookupByEmail).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('notifyRejection', () => {
@@ -233,6 +314,18 @@ describe('Slack Service', () => {
 
             await slackService.notifyRejection(mockRequest, mockApprover, 'requester@example.com', null);
             expect(mockPostMessage).toHaveBeenCalled();
+        });
+
+        it('should skip DM when requesterId not found (line 186)', async () => {
+            mockLookupByEmail.mockResolvedValue(null); // User not found
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { name: 'Manager' };
+
+            await slackService.notifyRejection(mockRequest, mockApprover, 'unknown@example.com', 'Rejected');
+            expect(mockLookupByEmail).toHaveBeenCalledWith({ email: 'unknown@example.com' });
+            expect(mockPostMessage).not.toHaveBeenCalled(); // No DM sent
         });
     });
 });

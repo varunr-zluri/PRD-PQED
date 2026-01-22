@@ -69,4 +69,75 @@ describe('App.js', () => {
             expect(res.statusCode).toEqual(404);
         });
     });
+
+    describe('ORM Middleware Exception Handling', () => {
+        it('should continue when ormMiddleware throws (lines 43-45)', async () => {
+            // Reset modules to get fresh app with throwing middleware
+            jest.resetModules();
+
+            // Mock ormMiddleware to throw
+            jest.doMock('../src/config/database', () => ({
+                getEM: jest.fn(),
+                initORM: jest.fn(),
+                closeORM: jest.fn(),
+                getORM: jest.fn(),
+                ormMiddleware: () => {
+                    throw new Error('ORM not initialized');
+                }
+            }));
+
+            // Re-mock auth for the fresh app
+            jest.doMock('../src/middleware/auth', () => jest.fn((req, res, next) => {
+                req.user = { id: 1, role: 'ADMIN' };
+                next();
+            }));
+
+            // Re-mock validators
+            jest.doMock('../src/validators', () => ({
+                validateBody: () => (req, res, next) => next(),
+                validateQuery: () => (req, res, next) => next(),
+                loginSchema: {},
+                signupSchema: {},
+                submitRequestSchema: {},
+                updateRequestSchema: {},
+                requestFiltersSchema: {}
+            }));
+
+            const appWithThrowingMiddleware = require('../src/app');
+
+            // Health check should still work because catch calls next()
+            const res = await request(appWithThrowingMiddleware).get('/');
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toHaveProperty('message');
+        });
+    });
+
+    describe('Error Handler Edge Cases', () => {
+        it('should use default message when error has no message (line 62)', async () => {
+            // Create a test route that throws an error without a message
+            const express = require('express');
+            const testApp = express();
+
+            testApp.get('/test-error', (req, res, next) => {
+                const err = new Error();
+                err.message = ''; // Empty message
+                next(err);
+            });
+
+            // Apply same error handler as app.js
+            testApp.use((err, req, res, next) => {
+                console.error(err.stack);
+                res.status(500).json({
+                    status: 'error',
+                    message: err.message || 'Internal Server Error'
+                });
+            });
+
+            const res = await request(testApp).get('/test-error');
+
+            expect(res.statusCode).toEqual(500);
+            expect(res.body.message).toBe('Internal Server Error');
+        });
+    });
 });

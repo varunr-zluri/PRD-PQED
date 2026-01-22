@@ -186,4 +186,60 @@ describe('Profile', () => {
             expect(screen.getByText('Saving...')).toBeInTheDocument();
         });
     });
+
+    it('handles generic error without response data', async () => {
+        mockPatch.mockRejectedValue(new Error('Network Error'));
+        render(<Profile />);
+
+        fireEvent.change(screen.getByDisplayValue('Test User'), {
+            target: { name: 'name', value: 'Updated Name' }
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith('Failed to update profile');
+        });
+    });
+
+    it('sends only changed fields', async () => {
+        mockPatch.mockResolvedValue({ data: { message: 'Success' } });
+        render(<Profile />);
+
+        // Only change password
+        fireEvent.change(screen.getByPlaceholderText('Leave empty to keep current'), {
+            target: { name: 'password', value: 'newpassword' }
+        });
+        fireEvent.change(screen.getByPlaceholderText('Confirm new password'), {
+            target: { name: 'confirmPassword', value: 'newpassword' }
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+        await waitFor(() => {
+            // Should NOT include name or username since they weren't changed
+            expect(mockPatch).toHaveBeenCalledWith('/auth/profile', { password: 'newpassword' });
+        });
+    });
+});
+
+describe('Profile - Edge Cases', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('initializes with empty values when user data is missing', () => {
+        // Override mock for this test
+        jest.spyOn(require('../../contexts/AuthContext'), 'useAuth').mockImplementation(() => ({
+            user: {} // No name or username
+        }));
+
+        render(<Profile />);
+
+        // Inputs should be empty (not undefined/null causing React warnings)
+        const inputs = screen.getAllByPlaceholderText(/John Doe|johndoe/);
+        inputs.forEach(input => {
+            expect(input).toHaveValue('');
+        });
+    });
 });

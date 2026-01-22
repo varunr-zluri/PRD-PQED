@@ -4,6 +4,9 @@ pnpm-lock.yaml
 yarn.lock
 package-lock.json
 
+# Coverage (root-level unified)
+coverage/
+
 # Environment
 .env
 .env.local
@@ -21,12 +24,10 @@ out/
 
 # Backend
 backend/uploads/
-backend/coverage/
 backend/logs/
 backend/scripts/test/
 
 # Frontend
-frontend/coverage/
 
 
 # IDE

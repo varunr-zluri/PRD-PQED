@@ -54,6 +54,58 @@ describe('validateQuery Service', () => {
             expect(result.valid).toBe(true);
         });
 
+        it('should validate valid shell syntax db.collection.find()', () => {
+            const result = validateMongoDB('db.users.find({ name: "John" })');
+            expect(result.valid).toBe(true);
+        });
+
+        it('should validate shell syntax with aggregation', () => {
+            const result = validateMongoDB('db.users.aggregate([{ $match: { age: 18 } }])');
+            expect(result.valid).toBe(true);
+        });
+
+        it('should reject invalid shell syntax format', () => {
+            const result = validateMongoDB('db.collection');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Invalid shell command format');
+        });
+
+        it('should reject unbalanced parentheses - too many closing', () => {
+            const result = validateMongoDB('db.users.find())');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Unbalanced brackets or parentheses');
+        });
+
+        it('should reject unbalanced braces - too many closing', () => {
+            const result = validateMongoDB('db.users.find({}})');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Unbalanced brackets or parentheses');
+        });
+
+        it('should reject unbalanced brackets - too many closing', () => {
+            const result = validateMongoDB('db.users.aggregate([]])');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Unbalanced brackets or parentheses');
+        });
+
+        it('should reject unclosed parentheses', () => {
+            const result = validateMongoDB('db.users.find({}');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Unclosed brackets or parentheses');
+        });
+
+        it('should reject unclosed braces', () => {
+            const result = validateMongoDB('db.users.find({');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Unclosed brackets or parentheses');
+        });
+
+        it('should reject unclosed brackets', () => {
+            const result = validateMongoDB('db.users.aggregate([');
+            expect(result.valid).toBe(false);
+            expect(result.error).toContain('Unclosed brackets or parentheses');
+        });
+
         it('should reject invalid JSON syntax', () => {
             const result = validateMongoDB('{ name: John }');
             // mongodb-query-parser is lenient with MongoDB shell syntax

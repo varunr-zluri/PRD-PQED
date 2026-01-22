@@ -94,10 +94,7 @@ const MySubmissions = () => {
     const handleClone = (request) => {
         // For scripts: block failed/rejected, check expiration for others
         if (request.submission_type === 'SCRIPT') {
-            if (request.status === 'FAILED' || request.status === 'REJECTED') {
-                toast.warning('Failed or rejected scripts cannot be cloned.');
-                return;
-            }
+
             if (isScriptExpired(request.created_at)) {
                 toast.warning('This script has expired and is no longer available for cloning. Scripts are retained for 30 days.');
                 return;
@@ -190,8 +187,9 @@ const MySubmissions = () => {
                 </div>
 
                 <div className="filter-group">
-                    <label className="label">Start Date</label>
+                    <label className="label" htmlFor="start_date">Start Date</label>
                     <input
+                        id="start_date"
                         type="date"
                         name="start_date"
                         className="input"
@@ -202,8 +200,9 @@ const MySubmissions = () => {
                 </div>
 
                 <div className="filter-group">
-                    <label className="label">End Date</label>
+                    <label className="label" htmlFor="end_date">End Date</label>
                     <input
+                        id="end_date"
                         type="date"
                         name="end_date"
                         className="input"

@@ -1,5 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import RequestDetailModal from '../RequestDetailModal';
+import axios from 'axios';
+
+jest.mock('axios');
 
 // Mock API client
 const mockGetRequestById = jest.fn();
@@ -251,7 +254,7 @@ describe('RequestDetailModal', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Execution Results')).toBeInTheDocument();
+            expect(screen.getByText('Execution Output')).toBeInTheDocument();
         });
     });
 
@@ -332,5 +335,202 @@ describe('RequestDetailModal', () => {
             const { toast } = require('react-toastify');
             expect(toast.error).toHaveBeenCalledWith('Approval failed');
         });
+    });
+
+    it('shows destructive warning before approving', async () => {
+        mockGetRequestById.mockResolvedValue({
+            ...mockRequest,
+            is_destructive: true,
+            destructive_warnings: ['Dropping table']
+        });
+        mockApproveRequest.mockResolvedValue({});
+        const onActionComplete = jest.fn();
+        const onClose = jest.fn();
+
+        render(
+            <RequestDetailModal
+                requestId={1}
+                isOpen={true}
+                onClose={onClose}
+                onActionComplete={onActionComplete}
+                showActions={true}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/Approve/)).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText(/Approve/));
+
+        await waitFor(() => {
+            expect(screen.getByText('⚠️ Destructive Operations Detected')).toBeInTheDocument();
+            expect(screen.getByText('Dropping table')).toBeInTheDocument();
+            expect(screen.getByText('Yes, Approve Anyway')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Yes, Approve Anyway'));
+
+        await waitFor(() => {
+            expect(mockApproveRequest).toHaveBeenCalledWith(1);
+            expect(onActionComplete).toHaveBeenCalled();
+        });
+    });
+
+    it('fetches script content from URL', async () => {
+        mockGetRequestById.mockResolvedValue({
+            ...mockRequest,
+            submission_type: 'SCRIPT',
+            script_path: 'http://example.com/script.js',
+            script_content: null
+        });
+
+        const axios = require('axios');
+        axios.get.mockResolvedValue({ data: 'console.log("fetched content")' });
+
+        render(<RequestDetailModal requestId={1} isOpen={true} onClose={jest.fn()} />);
+
+        await waitFor(() => {
+            expect(axios.get).toHaveBeenCalledWith('http://example.com/script.js');
+            expect(screen.getByText(/console.log\("fetched content"\)/)).toBeInTheDocument();
+        });
+    });
+
+    it('displays logs tab and content', async () => {
+        const logs = JSON.stringify({ stdout: ['Log 1'], stderr: ['Error 1'] });
+        mockGetRequestById.mockResolvedValue({
+            ...mockRequest,
+            status: 'EXECUTED',
+            executions: [{
+                id: 1,
+                status: 'SUCCESS',
+                executed_at: '2024-01-15T11:00:00Z',
+                script_logs: logs
+            }]
+        });
+
+        render(<RequestDetailModal requestId={1} isOpen={true} onClose={jest.fn()} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Console Logs')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Console Logs'));
+
+        expect(screen.getByText(/Log 1/)).toBeInTheDocument();
+        expect(screen.getByText(/Error 1/)).toBeInTheDocument();
+    });
+
+    it('handles CSV download error', async () => {
+        mockGetRequestById.mockResolvedValue({
+            ...mockRequest,
+            status: 'EXECUTED',
+            executions: [{
+                id: 1,
+                status: 'SUCCESS',
+                result: [{ id: 1 }],
+                is_truncated: true,
+                csv_available: true,
+                executed_at: '2024-01-15T11:00:00Z'
+            }]
+        });
+        mockDownloadCSV.mockRejectedValue({ response: { data: { message: 'Download failed' } } });
+
+        render(<RequestDetailModal requestId={1} isOpen={true} onClose={jest.fn()} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Download Full CSV')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Download Full CSV'));
+
+        await waitFor(() => {
+            const { toast } = require('react-toastify');
+            expect(toast.error).toHaveBeenCalledWith('Download failed');
+        });
+    });
+
+    it('cancels destructive warning', async () => {
+        mockGetRequestById.mockResolvedValue({
+            ...mockRequest,
+            is_destructive: true,
+            destructive_warnings: ['Dropping table']
+        });
+
+        render(
+            <RequestDetailModal
+                requestId={1}
+                isOpen={true}
+                onClose={jest.fn()}
+                showActions={true}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/Approve/)).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText(/Approve/));
+
+        await waitFor(() => {
+            expect(screen.getByText('Cancel')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Cancel'));
+
+        await waitFor(() => {
+            expect(screen.queryByText('⚠️ Destructive Operations Detected')).not.toBeInTheDocument();
+            expect(screen.getByText(/Approve/)).toBeInTheDocument();
+        });
+    });
+
+    it('cancels rejection', async () => {
+        render(
+            <RequestDetailModal
+                requestId={1}
+                isOpen={true}
+                onClose={jest.fn()}
+                showActions={true}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Reject')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Reject'));
+
+        await waitFor(() => {
+            expect(screen.getByText('Back')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Back'));
+
+        await waitFor(() => {
+            expect(screen.queryByText('Enter rejection reason...')).not.toBeInTheDocument();
+            expect(screen.getByText('Reject')).toBeInTheDocument();
+        });
+    });
+
+    it('handles invalid script logs JSON', async () => {
+        mockGetRequestById.mockResolvedValue({
+            ...mockRequest,
+            status: 'EXECUTED',
+            executions: [{
+                id: 1,
+                status: 'SUCCESS',
+                executed_at: '2024-01-15T11:00:00Z',
+                script_logs: '{ invalid json }'
+            }]
+        });
+
+        render(<RequestDetailModal requestId={1} isOpen={true} onClose={jest.fn()} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Execution Output')).toBeInTheDocument();
+        });
+
+        // Should default to no logs (so no Console Logs tab), just results (if any) or empty
+        expect(screen.queryByText('Console Logs')).not.toBeInTheDocument();
     });
 });
