@@ -1,5 +1,6 @@
 const { getEM } = require('../config/database');
 const { QueryExecution } = require('../entities/QueryExecution.entity');
+const { handleError } = require('../utils/errorHandler');
 const axios = require('axios');
 
 const RETENTION_DAYS = 30;
@@ -69,7 +70,7 @@ const downloadCSV = async (req, res) => {
         return res.redirect(execution.result_file_path);
     } catch (error) {
         console.error('[CSV] Error:', error.message);
-        res.status(500).json({ error: error.message });
+        return handleError(error, res);
     }
 };
 
@@ -116,7 +117,7 @@ const getExecutionDetails = async (req, res) => {
             csv_url: execution.result_file_path || null
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return handleError(error, res);
     }
 };
 

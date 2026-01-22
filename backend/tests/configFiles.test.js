@@ -141,4 +141,8 @@ describe('Config Module Coverage', () => {
             expect(podNames).toContain('pod-2');
         });
     });
+
+    // Note: database.js is covered by integration tests throughout the suite.
+    // Direct unit testing of database.js is skipped because MikroORM's import chain
+    // makes it impossible to mock properly (TypeError: Class extends value undefined)
 });

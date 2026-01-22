@@ -79,7 +79,7 @@ describe('Integration Tests - Error Paths', () => {
 
             const res = await request(app).get('/api/requests');
 
-            expect(res.statusCode).toBe(500);
+            expect(res.statusCode).toBe(503);
             expect(res.body.error).toBe('Database connection lost');
         });
     });

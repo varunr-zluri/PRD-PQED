@@ -217,7 +217,7 @@ describe('Approval Endpoints', () => {
                 .patch('/api/requests/1')
                 .send({ status: 'APPROVED' });
 
-            expect(res.statusCode).toEqual(500);
+            expect(res.statusCode).toEqual(503);
             expect(res.body.error).toBe('Database connection failed');
         });
 
@@ -238,7 +238,7 @@ describe('Approval Endpoints', () => {
                 .patch('/api/requests/1')
                 .send({ status: 'APPROVED' });
 
-            expect(res.statusCode).toEqual(500);
+            expect(res.statusCode).toEqual(400);
         });
     });
 });

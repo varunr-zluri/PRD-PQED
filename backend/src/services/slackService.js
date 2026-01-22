@@ -46,24 +46,45 @@ const sendDM = async (userId, text, blocks = null) => {
 };
 
 /**
+ * Truncate query preview to a reasonable length
+ */
+const getQueryPreview = (request) => {
+    if (request.submission_type === 'SCRIPT') {
+        return '[Script Upload]';
+    }
+    const content = request.query_content || '';
+    return content.length > 100 ? content.substring(0, 100) + '...' : content;
+};
+
+/**
  * SUBMISSION: Channel message + DM to manager
  */
 const notifyNewSubmission = async (request, requester, managerEmail) => {
+    const queryPreview = getQueryPreview(request);
+    const commentText = request.comments ? `*Comment:* ${request.comments}\n` : '';
+
+    const messageText = `:database: *New Query Request*
+*ID:* #${request.id}
+*Requester:* ${requester.email}
+*Database:* ${request.instance_name} (${request.db_type})
+*POD:* ${request.pod_name}
+${commentText}*Query Preview:* \`${queryPreview}\``;
+
     // Channel notification
     if (APPROVAL_CHANNEL) {
         try {
             await slack.chat.postMessage({
                 channel: APPROVAL_CHANNEL,
-                text: `:database: New Query Request`,
+                text: `:database: New Query Request #${request.id}`,
                 blocks: [{
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: `:database: *New Query Request*\n*Requester:* ${requester.name}\n*Database:* ${request.instance_name} (${request.db_type})\n*POD:* ${request.pod_name}\n*Type:* ${request.submission_type}`
+                        text: messageText
                     }
                 }]
             });
-            console.log(`[Slack] Sent channel notification for new request`);
+            console.log(`[Slack] Sent channel notification for new request #${request.id}`);
         } catch (error) {
             console.error('[Slack] Failed to send channel notification:', error.message);
         }
@@ -73,16 +94,12 @@ const notifyNewSubmission = async (request, requester, managerEmail) => {
     if (managerEmail) {
         const managerId = await getUserByEmail(managerEmail);
         if (managerId) {
-            const queryPreview = request.submission_type === 'SCRIPT'
-                ? '[Script Upload]'
-                : (request.query_content?.substring(0, 200) || 'N/A');
-
-            await sendDM(managerId, 'New Query Request to Review', [
+            await sendDM(managerId, `New Query Request #${request.id} to Review`, [
                 {
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: `:bell: *New Query Request for Review*\n*Requester:* ${requester.name} (${requester.email})\n*Database:* ${request.instance_name} (${request.db_type})\n*POD:* ${request.pod_name}\n*Query:*\n\`\`\`${queryPreview}\`\`\``
+                        text: messageText
                     }
                 },
                 {
@@ -105,19 +122,49 @@ const notifyNewSubmission = async (request, requester, managerEmail) => {
 const notifyApprovalResult = async (request, approver, executionResult, requesterEmail) => {
     const isSuccess = executionResult.success;
     const emoji = isSuccess ? ':white_check_mark:' : ':x:';
-    const status = isSuccess ? 'Executed Successfully' : 'Execution Failed';
+    const status = isSuccess ? 'Query Executed Successfully' : 'Query Execution Failed';
 
-    // Channel: Status only (no result preview)
+    // Format result preview
+    let resultPreview = '';
+    if (isSuccess) {
+        const result = executionResult.result;
+        if (typeof result === 'object') {
+            // Prefer total_rows (actual count) over array.length (potentially truncated)
+            if (result?.total_rows !== undefined && result?.total_rows !== null) {
+                resultPreview = `${result.total_rows} rows returned`;
+            } else if (Array.isArray(result?.rows)) {
+                resultPreview = `${result.rows.length} rows returned`;
+            } else if (Array.isArray(result)) {
+                resultPreview = `${result.length} rows returned`;
+            } else if (result?.output) {
+                // Script output
+                resultPreview = String(result.output).substring(0, 100);
+            } else {
+                resultPreview = JSON.stringify(result).substring(0, 100);
+            }
+        } else {
+            resultPreview = String(result).substring(0, 100);
+        }
+    } else {
+        resultPreview = executionResult.error || 'Unknown error';
+    }
+
+    const channelMessage = `${emoji} *${status}*
+*ID:* #${request.id}
+*Approved by:* ${approver.email}
+*Result:* ${resultPreview}`;
+
+    // Channel: Status only
     if (APPROVAL_CHANNEL) {
         try {
             await slack.chat.postMessage({
                 channel: APPROVAL_CHANNEL,
-                text: `${emoji} Query ${status}`,
+                text: `${emoji} ${status} - Request #${request.id}`,
                 blocks: [{
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: `${emoji} *Query ${status}*\n*Database:* ${request.instance_name}\n*Approved by:* ${approver.name}`
+                        text: channelMessage
                     }
                 }]
             });
@@ -126,16 +173,11 @@ const notifyApprovalResult = async (request, approver, executionResult, requeste
         }
     }
 
-    // Result preview for DMs
-    const resultPreview = isSuccess
-        ? JSON.stringify(executionResult.result).substring(0, 500)
-        : executionResult.error;
-
     const resultSection = {
         type: 'section',
         text: {
             type: 'mrkdwn',
-            text: `${emoji} *Query ${status}*\n*Database:* ${request.instance_name} (${request.db_type})\n\n*Result:*\n\`\`\`${resultPreview}${resultPreview.length >= 500 ? '...' : ''}\`\`\``
+            text: channelMessage
         }
     };
 
@@ -143,13 +185,13 @@ const notifyApprovalResult = async (request, approver, executionResult, requeste
     if (requesterEmail) {
         const requesterId = await getUserByEmail(requesterEmail);
         if (requesterId) {
-            await sendDM(requesterId, `${emoji} Your Query ${status}`, [
+            await sendDM(requesterId, `${emoji} Your Query ${isSuccess ? 'Executed' : 'Failed'} - #${request.id}`, [
                 resultSection,
                 {
                     type: 'actions',
                     elements: [{
                         type: 'button',
-                        text: { type: 'plain_text', text: '📋 Details', emoji: true },
+                        text: { type: 'plain_text', text: '📋 View Details', emoji: true },
                         url: MY_SUBMISSIONS_URL
                     }]
                 }
@@ -161,13 +203,13 @@ const notifyApprovalResult = async (request, approver, executionResult, requeste
     if (approver.email) {
         const approverId = await getUserByEmail(approver.email);
         if (approverId) {
-            await sendDM(approverId, `${emoji} Query ${status}`, [
+            await sendDM(approverId, `${emoji} Query ${isSuccess ? 'Executed' : 'Failed'} - #${request.id}`, [
                 resultSection,
                 {
                     type: 'actions',
                     elements: [{
                         type: 'button',
-                        text: { type: 'plain_text', text: '📋 Details', emoji: true },
+                        text: { type: 'plain_text', text: '📋 View Details', emoji: true },
                         url: APPROVAL_DASHBOARD_URL
                     }]
                 }
@@ -182,14 +224,22 @@ const notifyApprovalResult = async (request, approver, executionResult, requeste
 const notifyRejection = async (request, approver, requesterEmail, reason) => {
     if (!requesterEmail) return;
 
+    const queryPreview = getQueryPreview(request);
+
+    const messageText = `:x: *Query Request Rejected*
+*ID:* #${request.id}
+*Rejected by:* ${approver.email}
+*Reason:* ${reason || 'No reason provided'}
+*Original Query:* \`${queryPreview}\``;
+
     const requesterId = await getUserByEmail(requesterEmail);
     if (requesterId) {
-        await sendDM(requesterId, 'Your Query Request was Rejected', [
+        await sendDM(requesterId, `Your Query Request #${request.id} was Rejected`, [
             {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `:no_entry: *Your Query Request was Rejected*\n*Database:* ${request.instance_name} (${request.db_type})\n*Rejected by:* ${approver.name}\n*Reason:* ${reason || 'No reason provided'}`
+                    text: messageText
                 }
             },
             {

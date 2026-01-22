@@ -217,6 +217,141 @@ describe('Slack Service', () => {
             expect(mockPostMessage).toHaveBeenCalled();
         });
 
+        it('should use total_rows for result preview when available (line 134)', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { email: 'manager@example.com' };
+            // Result with total_rows (actual count) different from rows array length (truncated)
+            const executionResult = {
+                success: true,
+                result: {
+                    total_rows: 500,
+                    rows: Array(100).fill({ id: 1 }),
+                    is_truncated: true
+                }
+            };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            // Check that the message contains "500 rows returned" not "100 rows returned"
+            expect(mockPostMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    blocks: expect.arrayContaining([
+                        expect.objectContaining({
+                            text: expect.objectContaining({
+                                text: expect.stringContaining('500 rows returned')
+                            })
+                        })
+                    ])
+                })
+            );
+        });
+
+        it('should use rows.length when total_rows not available (line 136)', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { email: 'manager@example.com' };
+            // Result with rows array but no total_rows
+            const executionResult = {
+                success: true,
+                result: { rows: [{ id: 1 }, { id: 2 }, { id: 3 }] }
+            };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            expect(mockPostMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    blocks: expect.arrayContaining([
+                        expect.objectContaining({
+                            text: expect.objectContaining({
+                                text: expect.stringContaining('3 rows returned')
+                            })
+                        })
+                    ])
+                })
+            );
+        });
+
+        it('should handle script output in result preview (line 139-141)', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { email: 'manager@example.com' };
+            // Result with script output
+            const executionResult = {
+                success: true,
+                result: { output: 'Script executed successfully with 5 records processed' }
+            };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            expect(mockPostMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    blocks: expect.arrayContaining([
+                        expect.objectContaining({
+                            text: expect.objectContaining({
+                                text: expect.stringContaining('Script executed successfully')
+                            })
+                        })
+                    ])
+                })
+            );
+        });
+
+        it('should fallback to JSON.stringify for unknown object result (line 143)', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { email: 'manager@example.com' };
+            // Result is an object without rows, total_rows, or output
+            const executionResult = {
+                success: true,
+                result: { affected: 10, message: 'Records updated' }
+            };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            expect(mockPostMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    blocks: expect.arrayContaining([
+                        expect.objectContaining({
+                            text: expect.objectContaining({
+                                text: expect.stringContaining('affected')
+                            })
+                        })
+                    ])
+                })
+            );
+        });
+
+        it('should handle primitive result value (line 146)', async () => {
+            mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
+            mockPostMessage.mockResolvedValue({ ok: true });
+
+            const mockRequest = { id: 1, instance_name: 'test-db', db_type: 'POSTGRESQL' };
+            const mockApprover = { email: 'manager@example.com' };
+            // Result is a primitive (string or number)
+            const executionResult = {
+                success: true,
+                result: 'Operation completed successfully'
+            };
+
+            await slackService.notifyApprovalResult(mockRequest, mockApprover, executionResult, 'requester@example.com');
+            expect(mockPostMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    blocks: expect.arrayContaining([
+                        expect.objectContaining({
+                            text: expect.objectContaining({
+                                text: expect.stringContaining('Operation completed successfully')
+                            })
+                        })
+                    ])
+                })
+            );
+        });
+
         it('should handle channel notification failure in approval (line 125)', async () => {
             mockLookupByEmail.mockResolvedValue({ user: { id: 'U789' } });
             // First call (channel notification) fails, subsequent calls succeed

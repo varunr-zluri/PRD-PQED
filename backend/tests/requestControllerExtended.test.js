@@ -146,7 +146,7 @@ describe('Request Controller Extended Tests', () => {
 
             const res = await request(app).get('/api/requests/my-submissions');
 
-            expect(res.statusCode).toEqual(500);
+            expect(res.statusCode).toEqual(400);
             expect(res.body.error).toBe('Database unavailable');
         });
     });

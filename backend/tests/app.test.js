@@ -68,6 +68,13 @@ describe('App.js', () => {
             // 404 means routes are mounted but path doesn't exist
             expect(res.statusCode).toEqual(404);
         });
+
+        it('should respond to /api/ping health check (routes/index.js line 9)', async () => {
+            const res = await request(app).get('/api/ping');
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toHaveProperty('pong', true);
+        });
     });
 
     describe('ORM Middleware Exception Handling', () => {

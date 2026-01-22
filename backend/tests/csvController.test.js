@@ -317,7 +317,7 @@ describe('CSV Controller', () => {
 
             const res = await request(app).get('/api/requests/1/execution');
 
-            expect(res.statusCode).toEqual(500);
+            expect(res.statusCode).toEqual(503);
             expect(res.body.error).toBe('Database connection failed');
         });
     });
