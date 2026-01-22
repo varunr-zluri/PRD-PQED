@@ -75,16 +75,32 @@ const Sidebar = () => {
                 </div>
                 <button
                     onClick={logout}
-                    className="btn"
                     style={{
                         width: '100%',
-                        justifyContent: 'flex-start',
-                        color: '#ef4444',
-                        padding: '0'
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        color: '#94a3b8',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                        e.currentTarget.style.color = '#f87171';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                        e.currentTarget.style.color = '#94a3b8';
                     }}
                 >
-                    <LogOut size={20} />
-                    <span>Logout</span>
+                    <LogOut size={18} />
+                    <span>Sign Out</span>
                 </button>
             </div>
         </aside>
