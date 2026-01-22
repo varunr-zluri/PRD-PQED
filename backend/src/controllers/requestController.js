@@ -4,6 +4,7 @@ const executionService = require('../services/executionService');
 const slackService = require('../services/slackService');
 const { validateQuery } = require('../services/validateQuery');
 const { detectDestructiveOperations } = require('../services/destructiveDetector');
+const { handleError } = require('../utils/errorHandler');
 
 
 const submitRequest = async (req, res) => {
@@ -85,10 +86,7 @@ const buildWhereClause = (query) => {
     if (search) {
         whereClause.$or = [
             { query_content: { $ilike: `%${search}%` } },
-            { requester_name: { $ilike: `%${search}%` } },
-            { instance_name: { $ilike: `%${search}%` } },
-            { database_name: { $ilike: `%${search}%` } },
-            { comments: { $ilike: `%${search}%` } }
+            { requester_name: { $ilike: `%${search}%` } }
         ];
     }
 
@@ -116,7 +114,7 @@ const getRequests = async (req, res) => {
         const requests = rows.map(r => r.toJSON());
         res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        handleError(error, res);
     }
 };
 
@@ -138,7 +136,7 @@ const getMySubmissions = async (req, res) => {
 
         res.json({ requests, total: count, page: parseInt(page), pages: Math.ceil(count / limit) });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        handleError(error, res);
     }
 };
 
@@ -240,7 +238,7 @@ const getRequestById = async (req, res) => {
 
         res.json(buildResult(request));
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        handleError(error, res);
     }
 };
 
@@ -332,7 +330,7 @@ const updateRequest = async (req, res) => {
 
         }
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        handleError(error, res);
     }
 };
 

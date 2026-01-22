@@ -1,6 +1,7 @@
 const { databases } = require('../config/databases');
 const { Client } = require('pg');
 const { MongoClient } = require('mongodb');
+const { handleError } = require('../utils/errorHandler');
 
 const getResources = async (req, res) => {
     try {
@@ -58,7 +59,7 @@ const getResources = async (req, res) => {
         res.json(instances);
     } catch (error) {
         console.error('[DatabaseController] Error:', error.message);
-        res.status(500).json({ error: 'Failed to fetch resources', details: error.message });
+        handleError(error, res);
     }
 };
 

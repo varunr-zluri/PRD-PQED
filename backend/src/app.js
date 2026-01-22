@@ -11,15 +11,15 @@ const app = express();
 // Rate Limiters
 const globalLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10 minutes
-    max: 2000, // Limit each IP to 100 requests per windowMs
+    max: 20000, // Limit each IP to 2000 requests per window per min
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' }
 });
 
 const authLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 10 minutes
-    max: 100, // Limit each IP to 10 login/signup attempts per hour
+    windowMs: 10 * 60 * 1000, // 10 minutes
+    max: 40, // Limit each IP to 4 login/signup attempts per minute
     message: { error: 'Too many login attempts, please try again later.' }
 });
 

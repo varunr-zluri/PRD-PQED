@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../entities');
 const { getEM } = require('../config/database');
 const config = require('../config/env');
+const { handleError } = require('../utils/errorHandler');
 
 const generateToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role }, config.jwt.secret, {
@@ -47,7 +48,7 @@ const logout = async (req, res) => {
     try {
         res.send({ message: 'Logged out successfully' });
     } catch (error) {
-        res.status(500).send();
+        handleError(error, res);
     }
 };
 
@@ -55,7 +56,7 @@ const getMe = async (req, res) => {
     try {
         res.send(req.user.toJSON());
     } catch (error) {
-        res.status(500).send();
+        handleError(error, res);
     }
 };
 
